@@ -16,10 +16,13 @@ StyledClippingRect {
     required property string clientAddress
     required property var overview
     required property bool captureEnabled
+    property bool interactive: true
+    property bool navigationEnabled: true
 
     readonly property HyprlandToplevel client: overview.windowForAddress(clientAddress)
     readonly property string address: clientAddress
-    readonly property bool selected: overview.selectedAddress === address
+    readonly property string navigationKey: `window:${address}`
+    readonly property bool selected: navigationEnabled && !overview.specialSelectionActive && overview.selectedAddress === address
     readonly property bool focused: !!client && (client === Hypr.activeToplevel || client.activated)
     readonly property string appId: client?.lastIpcObject?.class
         || client?.wayland?.appId
@@ -38,11 +41,15 @@ StyledClippingRect {
     scale: selected ? 1.015 : hovered ? 1.01 : 1
 
     Component.onCompleted: {
-        overview.registerWindowCard(root);
+        if (navigationEnabled)
+            overview.registerWindowCard(root);
         if (client && !client.wayland)
             overview.warnPreview(client, qsTr("no screencopy-compatible Wayland toplevel is available"));
     }
-    Component.onDestruction: overview.unregisterWindowCard(root)
+    Component.onDestruction: {
+        if (navigationEnabled)
+            overview.unregisterWindowCard(root);
+    }
 
     Item {
         id: previewArea
@@ -182,12 +189,15 @@ StyledClippingRect {
 
     MouseArea {
         anchors.fill: parent
-        enabled: !!root.client
+        enabled: root.interactive && !!root.client
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
         onEntered: root.hovered = true
         onExited: root.hovered = false
-        onClicked: root.overview.activateWindow(root.client)
+        onClicked: {
+            root.overview.selectWindow(root.address);
+            root.overview.activateWindow(root.client);
+        }
     }
 
     Behavior on scale {

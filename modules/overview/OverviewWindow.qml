@@ -15,8 +15,9 @@ StyledWindow {
 
     required property LazyLoader loader
 
+    readonly property var allWorkspaces: Hypr.workspaces.values
     readonly property var workspaces: {
-        const normal = Hypr.workspaces.values.filter(workspace => root.isNormalWorkspace(workspace));
+        const normal = allWorkspaces.filter(workspace => root.isNormalWorkspace(workspace));
         const active = Hypr.focusedWorkspace;
         if (root.isNormalWorkspace(active) && !normal.includes(active))
             normal.push(active);
@@ -31,6 +32,33 @@ StyledWindow {
         const bFocus = b.lastIpcObject?.focusHistoryID ?? 0;
         return aFocus - bFocus;
     })
+    readonly property var specialWindows: Hypr.toplevels.values.filter(client => root.isSpecialWindow(client)).sort((a, b) => {
+        const workspaceDelta = (a.workspace?.name ?? "").localeCompare(b.workspace?.name ?? "");
+        if (workspaceDelta)
+            return workspaceDelta;
+
+        const aFocus = a.lastIpcObject?.focusHistoryID ?? 0;
+        const bFocus = b.lastIpcObject?.focusHistoryID ?? 0;
+        return aFocus - bFocus;
+    })
+    readonly property var allOverviewWindows: Hypr.toplevels.values.filter(client =>
+        root.isNormalWindow(client) || root.isSpecialWindow(client))
+    readonly property list<string> configuredSpecialWorkspaceNames: ["", "todo", "music", "communication", "sysmon"]
+    readonly property var specialWorkspaceNames: {
+        const names = configuredSpecialWorkspaceNames.slice();
+        const add = fullName => {
+            const name = root.canonicalSpecialWorkspaceName(fullName);
+            if (name !== null && !names.includes(name))
+                names.push(name);
+        };
+
+        for (const workspace of allWorkspaces)
+            add(workspace?.name ?? "");
+        for (const client of Hypr.toplevels.values)
+            add(client?.workspace?.name ?? "");
+
+        return names;
+    }
     readonly property bool captureEnabled: !loader.closing
     readonly property int gridSpacing: content.Tokens.spacing.large
     readonly property int outerPadding: Math.max(content.Tokens.padding.extraLargeIncreased, Math.round(width * 0.025))
@@ -48,10 +76,24 @@ StyledWindow {
         return Math.max(280, Math.min(680, available / workspaceColumns));
     }
     readonly property real workspaceCardHeight: workspaceCardWidth * 0.57
+    readonly property int specialWorkspaceColumns: {
+        const count = specialWorkspaceNames.length;
+        const available = Math.max(1, workspaceView.width - outerPadding * 2);
+        return Math.max(1, Math.min(count, Math.floor((available + gridSpacing) / (280 + gridSpacing))));
+    }
+    readonly property real specialWorkspaceCardWidth: {
+        const available = Math.max(1, workspaceView.width - outerPadding * 2 - gridSpacing * (specialWorkspaceColumns - 1));
+        return Math.max(230, Math.min(380, available / specialWorkspaceColumns));
+    }
+    readonly property real specialWorkspaceCardHeight: Math.max(190, specialWorkspaceCardWidth * 0.58)
 
     property string selectedAddress
+    property bool specialSelectionActive
+    property string selectedSpecialWorkspaceName
     property list<var> windowCards: []
+    property list<var> specialWorkspaceCards: []
     property list<int> workspaceIds: []
+    property list<string> specialWorkspaceKeys: []
     property list<string> windowAddresses: []
     property var previewWarnings: ({})
 
@@ -61,6 +103,20 @@ StyledWindow {
 
     function isNormalWindow(client: var): bool {
         if (!client || !isNormalWorkspace(client.workspace))
+            return false;
+
+        return isOverviewWindow(client);
+    }
+
+    function isSpecialWindow(client: var): bool {
+        if (!client || canonicalSpecialWorkspaceName(client.workspace?.name ?? "") === null)
+            return false;
+
+        return isOverviewWindow(client);
+    }
+
+    function isOverviewWindow(client: var): bool {
+        if (!client)
             return false;
 
         const ipc = client.lastIpcObject ?? {};
@@ -75,12 +131,43 @@ StyledWindow {
         return client?.address ?? "";
     }
 
+    function canonicalSpecialWorkspaceName(fullName: string): var {
+        if (!fullName.startsWith("special:"))
+            return null;
+
+        const name = fullName.slice("special:".length);
+        return name === "special" ? "" : name;
+    }
+
+    function fullSpecialWorkspaceName(name: string): string {
+        return name === "" ? "special:special" : `special:${name}`;
+    }
+
+    function specialWorkspaceDisplayName(name: string): string {
+        if (name === "")
+            return qsTr("Default");
+        return name.charAt(0).toUpperCase() + name.slice(1);
+    }
+
+    function specialWindowAddresses(name: string): var {
+        const fullName = fullSpecialWorkspaceName(name);
+        return specialWindows.filter(client => client?.workspace?.name === fullName)
+            .map(client => addressOf(client))
+            .filter(address => !!address);
+    }
+
+    function visibleMonitorForSpecialWorkspace(name: string): string {
+        const fullName = fullSpecialWorkspaceName(name);
+        const monitor = Hypr.monitors.values.find(item => item?.lastIpcObject?.specialWorkspace?.name === fullName);
+        return monitor?.name ?? "";
+    }
+
     function workspaceForId(id: int): HyprlandWorkspace {
         return workspaces.find(workspace => workspace.id === id) ?? null;
     }
 
     function windowForAddress(address: string): HyprlandToplevel {
-        return windows.find(client => addressOf(client) === address) ?? null;
+        return allOverviewWindows.find(client => addressOf(client) === address) ?? null;
     }
 
     function syncDelegateKeys(): void {
@@ -92,8 +179,16 @@ StyledWindow {
         if (nextWorkspaceIds.length !== workspaceIds.length)
             workspaceIds = nextWorkspaceIds.sort((a, b) => a - b);
 
+        const nextSpecialWorkspaceKeys = specialWorkspaceKeys.slice();
+        for (const name of specialWorkspaceNames) {
+            if (!nextSpecialWorkspaceKeys.includes(name))
+                nextSpecialWorkspaceKeys.push(name);
+        }
+        if (nextSpecialWorkspaceKeys.length !== specialWorkspaceKeys.length)
+            specialWorkspaceKeys = nextSpecialWorkspaceKeys;
+
         const nextWindowAddresses = windowAddresses.slice();
-        for (const client of windows) {
+        for (const client of allOverviewWindows) {
             const address = addressOf(client);
             if (address && !nextWindowAddresses.includes(address))
                 nextWindowAddresses.push(address);
@@ -112,6 +207,16 @@ StyledWindow {
         windowCards = windowCards.filter(item => item !== card);
     }
 
+    function registerSpecialWorkspaceCard(card: var): void {
+        const cards = specialWorkspaceCards.slice();
+        cards.push(card);
+        specialWorkspaceCards = cards;
+    }
+
+    function unregisterSpecialWorkspaceCard(card: var): void {
+        specialWorkspaceCards = specialWorkspaceCards.filter(item => item !== card);
+    }
+
     function warnPreview(client: var, reason: string): void {
         const key = addressOf(client) || client?.title || "unknown";
         if (previewWarnings[key])
@@ -122,38 +227,78 @@ StyledWindow {
     }
 
     function reconcileSelection(): void {
+        if (specialSelectionActive && specialWorkspaceNames.includes(selectedSpecialWorkspaceName))
+            return;
+
         if (windows.length === 0) {
             selectedAddress = "";
+            if (specialWorkspaceNames.length > 0) {
+                selectedSpecialWorkspaceName = specialWorkspaceNames[0];
+                specialSelectionActive = true;
+            } else {
+                specialSelectionActive = false;
+            }
             return;
         }
 
-        if (windows.some(client => addressOf(client) === selectedAddress))
+        if (!specialSelectionActive && windows.some(client => addressOf(client) === selectedAddress))
             return;
 
         const active = windows.find(client => client === Hypr.activeToplevel || client.activated);
         selectedAddress = addressOf(active ?? windows[0]);
+        specialSelectionActive = false;
+    }
+
+    function selectWindow(address: string): void {
+        if (!windows.some(client => addressOf(client) === address))
+            return;
+
+        selectedAddress = address;
+        specialSelectionActive = false;
+    }
+
+    function selectSpecialWorkspace(name: string): void {
+        if (!specialWorkspaceNames.includes(name))
+            return;
+
+        selectedSpecialWorkspaceName = name;
+        specialSelectionActive = true;
+    }
+
+    function selectedNavigationKey(): string {
+        return specialSelectionActive ? `special:${selectedSpecialWorkspaceName}` : `window:${selectedAddress}`;
+    }
+
+    function selectNavigationKey(key: string): void {
+        if (key.startsWith("window:"))
+            selectWindow(key.slice("window:".length));
+        else if (key.startsWith("special:"))
+            selectSpecialWorkspace(key.slice("special:".length));
     }
 
     function selectRelative(delta: int): void {
-        if (windows.length === 0)
+        const entries = windows.map(client => `window:${addressOf(client)}`)
+            .concat(specialWorkspaceNames.map(name => `special:${name}`));
+        if (entries.length === 0)
             return;
 
-        let index = windows.findIndex(client => addressOf(client) === selectedAddress);
+        let index = entries.indexOf(selectedNavigationKey());
         if (index < 0)
             index = delta > 0 ? -1 : 0;
-        index = (index + delta + windows.length) % windows.length;
-        selectedAddress = addressOf(windows[index]);
+        index = (index + delta + entries.length) % entries.length;
+        selectNavigationKey(entries[index]);
         revealSelection();
     }
 
     function selectSpatial(direction: string): void {
-        const cards = windowCards.filter(card => card.visible && card.width > 0 && card.height > 0);
+        const cards = windowCards.concat(specialWorkspaceCards)
+            .filter(card => card && card.visible && card.width > 0 && card.height > 0);
         if (cards.length === 0)
             return;
 
-        let current = cards.find(card => addressOf(card.client) === selectedAddress);
+        let current = cards.find(card => card.navigationKey === selectedNavigationKey());
         if (!current) {
-            selectedAddress = addressOf(cards[0].client);
+            selectNavigationKey(cards[0].navigationKey);
             revealSelection();
             return;
         }
@@ -184,14 +329,15 @@ StyledWindow {
         }
 
         if (best) {
-            selectedAddress = addressOf(best.client);
+            selectNavigationKey(best.navigationKey);
             revealSelection();
         }
     }
 
     function revealSelection(): void {
         Qt.callLater(() => {
-            const card = windowCards.find(item => addressOf(item.client) === selectedAddress);
+            const card = windowCards.concat(specialWorkspaceCards)
+                .find(item => item && item.navigationKey === selectedNavigationKey());
             if (!card)
                 return;
 
@@ -212,6 +358,23 @@ StyledWindow {
 
         close();
         workspace.activate();
+    }
+
+    function luaString(value: string): string {
+        return `"${value.replace(/\\/g, "\\\\").replace(/"/g, "\\\"")}"`;
+    }
+
+    function activateSpecialWorkspace(name: string): void {
+        if (!specialWorkspaceNames.includes(name)) {
+            console.warn(lc, `Refusing to toggle unavailable special workspace "${name}"`);
+            reconcileSelection();
+            return;
+        }
+
+        close();
+        Hypr.dispatch(Hypr.usingLua
+            ? `hl.dsp.workspace.toggle_special(${luaString(name)})`
+            : `togglespecialworkspace ${name}`);
     }
 
     function activateWindow(client: var): void {
@@ -245,6 +408,11 @@ StyledWindow {
     }
 
     function activateSelected(): void {
+        if (specialSelectionActive) {
+            activateSpecialWorkspace(selectedSpecialWorkspaceName);
+            return;
+        }
+
         const client = windows.find(item => addressOf(item) === selectedAddress);
         if (client)
             activateWindow(client);
@@ -256,10 +424,15 @@ StyledWindow {
     }
 
     onWorkspacesChanged: syncDelegateKeys()
+    onSpecialWorkspaceNamesChanged: {
+        syncDelegateKeys();
+        Qt.callLater(reconcileSelection);
+    }
     onWindowsChanged: {
         syncDelegateKeys();
         Qt.callLater(reconcileSelection);
     }
+    onSpecialWindowsChanged: syncDelegateKeys()
 
     Component.onCompleted: syncDelegateKeys()
 
@@ -394,10 +567,11 @@ StyledWindow {
                     }
 
                     StyledText {
-                        text: qsTr("%1 workspace%2 · %3 window%4").arg(root.workspaces.length)
+                        text: qsTr("%1 workspace%2 · %3 window%4 · %5 special").arg(root.workspaces.length)
                             .arg(root.workspaces.length === 1 ? "" : "s")
                             .arg(root.windows.length)
                             .arg(root.windows.length === 1 ? "" : "s")
+                            .arg(root.specialWorkspaceNames.length)
                         color: Colours.palette.m3onSurfaceVariant
                         font: Tokens.font.body.medium
                     }
@@ -406,7 +580,7 @@ StyledWindow {
                 StyledText {
                     Layout.alignment: Qt.AlignVCenter
                     visible: root.width >= 1000
-                    text: qsTr("Tab / arrows to navigate   ·   Enter to open   ·   Esc to close")
+                    text: qsTr("Tab / arrows to navigate   ·   Enter to open or toggle   ·   Esc to close")
                     color: Colours.palette.m3outline
                     font: Tokens.font.body.small
                 }
@@ -442,33 +616,93 @@ StyledWindow {
 
                 clip: true
                 contentWidth: width
-                contentHeight: workspaceGrid.implicitHeight + root.outerPadding * 2
+                contentHeight: workspaceSections.implicitHeight + root.outerPadding * 2
                 flickableDirection: Flickable.VerticalFlick
                 boundsBehavior: Flickable.StopAtBounds
 
-                GridLayout {
-                    id: workspaceGrid
+                ColumnLayout {
+                    id: workspaceSections
 
-                    x: Math.round((workspaceView.width - implicitWidth) / 2)
+                    x: root.outerPadding
                     y: root.outerPadding
-                    columns: root.workspaceColumns
-                    columnSpacing: root.gridSpacing
-                    rowSpacing: root.gridSpacing
+                    width: Math.max(1, workspaceView.width - root.outerPadding * 2)
+                    spacing: root.gridSpacing
 
-                    Repeater {
-                        // Keep primitive keys until this overview instance is unloaded. Removing
-                        // a live Hyprland QObject from a Repeater can otherwise invalidate
-                        // modelData while the animated delegate is still handling notifications.
-                        model: root.workspaceIds
+                    GridLayout {
+                        id: workspaceGrid
 
-                        WorkspaceCard {
-                            required property int modelData
+                        Layout.alignment: Qt.AlignHCenter
+                        columns: root.workspaceColumns
+                        columnSpacing: root.gridSpacing
+                        rowSpacing: root.gridSpacing
 
-                            Layout.preferredWidth: visible ? root.workspaceCardWidth : 0
-                            Layout.preferredHeight: visible ? root.workspaceCardHeight : 0
+                        Repeater {
+                            // Keep primitive keys until this overview instance is unloaded. Removing
+                            // a live Hyprland QObject from a Repeater can otherwise invalidate
+                            // modelData while the animated delegate is still handling notifications.
+                            model: root.workspaceIds
 
-                            workspaceId: modelData
-                            overview: root
+                            WorkspaceCard {
+                                required property int modelData
+
+                                Layout.preferredWidth: visible ? root.workspaceCardWidth : 0
+                                Layout.preferredHeight: visible ? root.workspaceCardHeight : 0
+
+                                workspaceId: modelData
+                                overview: root
+                            }
+                        }
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Layout.leftMargin: Tokens.padding.medium
+                        Layout.rightMargin: Tokens.padding.medium
+                        spacing: Tokens.spacing.medium
+
+                        MaterialIcon {
+                            text: "star"
+                            color: Colours.palette.m3tertiary
+                            fontStyle: Tokens.font.icon.large
+                        }
+
+                        StyledText {
+                            Layout.fillWidth: true
+                            text: qsTr("Special Workspaces")
+                            font: Tokens.font.body.builders.large.weight(Font.DemiBold).build()
+                        }
+
+                        StyledText {
+                            text: qsTr("%1 available").arg(root.specialWorkspaceNames.length)
+                            color: Colours.palette.m3outline
+                            font: Tokens.font.body.small
+                        }
+                    }
+
+                    GridLayout {
+                        id: specialWorkspaceGrid
+
+                        Layout.alignment: Qt.AlignHCenter
+                        columns: root.specialWorkspaceColumns
+                        columnSpacing: root.gridSpacing
+                        rowSpacing: root.gridSpacing
+
+                        Repeater {
+                            // Canonical primitive names are retained until unload. Unknown live
+                            // workspaces can therefore disappear without destroying a delegate
+                            // during Hyprland signal delivery or close animations.
+                            model: root.specialWorkspaceKeys
+
+                            SpecialWorkspaceCard {
+                                required property string modelData
+
+                                Layout.preferredWidth: visible ? root.specialWorkspaceCardWidth : 0
+                                Layout.preferredHeight: visible ? root.specialWorkspaceCardHeight : 0
+
+                                visible: root.specialWorkspaceNames.includes(modelData)
+                                specialWorkspaceName: modelData
+                                overview: root
+                            }
                         }
                     }
                 }
