@@ -9,6 +9,10 @@ import "modules/drawers"
 import "modules/background"
 import "modules/areapicker"
 import "modules/lock"
+import "modules/overview"
+import "modules/monitorprofiles"
+import "modules/aiusage"
+import "modules/leetcodetimer"
 import QtQuick
 import Quickshell
 import qs.services
@@ -28,7 +32,11 @@ ShellRoot {
 
     Background {}
     Drawers {}
+    AiUsage {}
+    LeetCodeTimerModule {}
     AreaPicker {}
+    Overview {}
+    MonitorProfiles {}
     Lock {
         id: lock
     }

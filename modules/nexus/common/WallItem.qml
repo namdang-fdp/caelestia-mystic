@@ -11,6 +11,8 @@ import qs.services
 Item {
     id: root
 
+    readonly property bool imageError: img.status === Image.Error
+
     property alias source: img.source
     property alias text: label.text
     property alias radius: imgWrapper.radius
@@ -54,7 +56,17 @@ Item {
 
                         anchors.centerIn: parent
                         containsIcon: true
+                        animated: !root.imageError
+                        visible: !root.imageError
                         implicitSize: Math.min(imgWrapper.width, imgWrapper.height) * 0.3
+                    }
+
+                    MaterialIcon {
+                        anchors.centerIn: parent
+                        visible: root.imageError
+                        text: "broken_image"
+                        color: Colours.palette.m3onErrorContainer
+                        fontStyle: Tokens.font.icon.extraLarge
                     }
                 }
 
@@ -77,6 +89,11 @@ Item {
                 }
                 retainWhileLoading: true
                 opacity: status === Image.Ready ? 1 : 0
+
+                onStatusChanged: {
+                    if (status === Image.Error && source)
+                        console.warn(`Wallpaper thumbnail failed to decode: ${source}`);
+                }
 
                 Behavior on opacity {
                     Anim {
