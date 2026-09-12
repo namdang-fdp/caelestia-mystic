@@ -11,6 +11,7 @@ import "modules/areapicker"
 import "modules/lock"
 import "modules/overview"
 import "modules/monitorprofiles"
+import "modules/aiusage"
 import QtQuick
 import Quickshell
 import qs.services
@@ -30,6 +31,7 @@ ShellRoot {
 
     Background {}
     Drawers {}
+    AiUsage {}
     AreaPicker {}
     Overview {}
     MonitorProfiles {}
