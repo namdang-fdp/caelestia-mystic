@@ -93,6 +93,36 @@ Scope {
         };
     }
 
+    function bestPreferredMode(monitor: var): var {
+        const size = preferredSize(monitor);
+        const candidates = (monitor.availableModes ?? []).map(mode => {
+            const match = String(mode).match(/^(\d+)x(\d+)@([\d.]+)Hz$/);
+            if (!match)
+                return null;
+            return {
+                width: Number(match[1]),
+                height: Number(match[2]),
+                refreshRate: Number(match[3])
+            };
+        }).filter(mode => mode && mode.width === size.width && mode.height === size.height);
+        const best = candidates.reduce((current, mode) => !current || mode.refreshRate > current.refreshRate ? mode : current, null);
+
+        if (!best)
+            return {
+                width: size.width,
+                height: size.height,
+                refreshRate: Number(monitor.refreshRate) || 0,
+                mode: "preferred"
+            };
+
+        return {
+            width: best.width,
+            height: best.height,
+            refreshRate: best.refreshRate,
+            mode: `${best.width}x${best.height}@${best.refreshRate}`
+        };
+    }
+
     function normaliseMonitor(raw: var): var {
         const name = String(raw.name ?? "");
         const previous = lastKnownMonitors[name] ?? {};
@@ -157,23 +187,27 @@ Scope {
                     error: qsTr("Home Dual requires both %1 and %2").arg(externalConnector).arg(laptopConnector)
                 };
 
-            const externalSize = preferredSize(external);
-            const laptopSize = preferredSize(laptop);
+            const externalMode = bestPreferredMode(external);
+            const laptopMode = bestPreferredMode(laptop);
             const externalScale = validScale(external.scale);
             return {
                 profile: resolved,
                 enabled: [{
                         name: externalConnector,
-                        width: externalSize.width,
-                        height: externalSize.height,
+                        width: externalMode.width,
+                        height: externalMode.height,
+                        refreshRate: externalMode.refreshRate,
+                        mode: externalMode.mode,
                         x: 0,
                         y: 0,
                         scale: externalScale
                     }, {
                         name: laptopConnector,
-                        width: laptopSize.width,
-                        height: laptopSize.height,
-                        x: Math.round(externalSize.width / externalScale),
+                        width: laptopMode.width,
+                        height: laptopMode.height,
+                        refreshRate: laptopMode.refreshRate,
+                        mode: laptopMode.mode,
+                        x: Math.round(externalMode.width / externalScale),
                         y: 0,
                         scale: validScale(laptop.scale)
                     }],
@@ -189,13 +223,15 @@ Scope {
                 return {
                     error: qsTr("Laptop Only requires %1").arg(laptopConnector)
                 };
-            const laptopSize = preferredSize(laptop);
+            const laptopMode = bestPreferredMode(laptop);
             return {
                 profile: resolved,
                 enabled: [{
                         name: laptopConnector,
-                        width: laptopSize.width,
-                        height: laptopSize.height,
+                        width: laptopMode.width,
+                        height: laptopMode.height,
+                        refreshRate: laptopMode.refreshRate,
+                        mode: laptopMode.mode,
                         x: 0,
                         y: 0,
                         scale: validScale(laptop.scale)
@@ -212,13 +248,15 @@ Scope {
                 return {
                     error: qsTr("External Only requires %1").arg(externalConnector)
                 };
-            const externalSize = preferredSize(external);
+            const externalMode = bestPreferredMode(external);
             return {
                 profile: resolved,
                 enabled: [{
                         name: externalConnector,
-                        width: externalSize.width,
-                        height: externalSize.height,
+                        width: externalMode.width,
+                        height: externalMode.height,
+                        refreshRate: externalMode.refreshRate,
+                        mode: externalMode.mode,
                         x: 0,
                         y: 0,
                         scale: validScale(external.scale)
@@ -244,6 +282,8 @@ Scope {
             if (!current || !current.enabled)
                 return false;
             if (current.width !== desired.width || current.height !== desired.height)
+                return false;
+            if (desired.refreshRate > 0 && Math.abs(current.refreshRate - desired.refreshRate) > 0.1)
                 return false;
             if (current.x !== desired.x || current.y !== desired.y)
                 return false;
@@ -276,7 +316,7 @@ Scope {
         const rules = plan.enabled.map(monitor => [
             "hl.monitor({",
             `output = ${luaQuote(monitor.name)},`,
-            "mode = \"preferred\",",
+            `mode = ${luaQuote(monitor.mode ?? "preferred")},`,
             `position = ${luaQuote(`${monitor.x}x${monitor.y}`)},`,
             `scale = ${luaNumber(monitor.scale)},`,
             "disabled = false",
