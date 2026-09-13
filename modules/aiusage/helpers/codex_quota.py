@@ -7,10 +7,12 @@ import json
 import math
 import os
 import selectors
+import shutil
 import subprocess
 import sys
 import time
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 
@@ -27,11 +29,88 @@ class CollectorError(Exception):
     """An error safe to surface without including raw server data."""
 
 
+def command_output(command: list[str]) -> str | None:
+    """Run a small discovery command without exposing its output to the UI."""
+    try:
+        result = subprocess.run(
+            command,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            timeout=5,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return result.stdout.strip() if result.returncode == 0 else None
+
+
+def npm_codex_candidates() -> list[Path]:
+    """Return launcher locations reported by npm's active global configuration."""
+    npm = shutil.which("npm")
+    if npm is None:
+        return []
+
+    candidates: list[Path] = []
+    prefix = command_output([npm, "prefix", "-g"])
+    if prefix:
+        prefix_path = Path(prefix).expanduser()
+        candidates.extend(
+            [
+                prefix_path / "bin" / "codex",
+                prefix_path / "lib" / "node_modules" / "@openai" / "codex" / "bin" / "codex.js",
+            ]
+        )
+
+    root = command_output([npm, "root", "-g"])
+    if root:
+        candidates.append(Path(root).expanduser() / "@openai" / "codex" / "bin" / "codex.js")
+    return candidates
+
+
+def find_codex_executable() -> str | None:
+    """Find a working Codex launcher in GUI/session environments with a minimal PATH."""
+    candidates: list[Path] = []
+    on_path = shutil.which("codex")
+    if on_path:
+        candidates.append(Path(on_path))
+
+    home = Path.home()
+    candidates.extend(
+        [
+            home / ".local" / "bin" / "codex",
+            home / ".bin" / "codex",
+            home / ".npm-global" / "bin" / "codex",
+            home / ".local" / "share" / "pnpm" / "codex",
+            home / ".volta" / "bin" / "codex",
+            home / ".bun" / "bin" / "codex",
+        ]
+    )
+    candidates.extend(npm_codex_candidates())
+
+    seen: set[Path] = set()
+    for candidate in candidates:
+        try:
+            executable = candidate.expanduser().resolve(strict=True)
+        except OSError:
+            continue
+        if executable in seen or not executable.is_file() or not os.access(executable, os.X_OK):
+            continue
+        seen.add(executable)
+        if command_output([str(executable), "--version"]):
+            return str(executable)
+    return None
+
+
 class AppServerClient:
     def __init__(self) -> None:
+        executable = find_codex_executable()
+        if executable is None:
+            raise CollectorError("Codex CLI is not installed or executable")
         try:
             self.process = subprocess.Popen(
-                ["codex", "app-server", "--stdio"],
+                [executable, "app-server", "--stdio"],
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.DEVNULL,
