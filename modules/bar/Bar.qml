@@ -44,6 +44,12 @@ ColumnLayout {
         const id = ch.entryId;
         const top = ch.y;
 
+        if (id === "pomodoro") {
+            if (popouts.hasCurrent && popouts.currentName !== "pomodoro")
+                popouts.hasCurrent = false;
+            return;
+        }
+
         if (id === "statusIcons" && Config.bar.popouts.statusIcons) {
             const items = (ch.item as StatusIcons).items;
             const icon = items.childAt(items.width / 2, mapToItem(items, 0, y).y);
@@ -107,7 +113,15 @@ ColumnLayout {
         id: repeater
 
         model: ScriptModel {
-            values: root.Config.bar.entries.filter(e => e.enabled ?? true)
+            values: {
+                const entries = [...root.Config.bar.entries];
+                if (!entries.some(e => e.id === "pomodoro")) {
+                    const clockIdx = entries.findIndex(e => e.id === "clock");
+                    const insertIdx = clockIdx !== -1 ? clockIdx + 1 : entries.length - 2;
+                    entries.splice(insertIdx, 0, { id: "pomodoro", enabled: true });
+                }
+                return entries.filter(e => e.enabled ?? true);
+            }
         }
 
         DelegateChooser {
@@ -160,6 +174,15 @@ ColumnLayout {
                 delegate: EntryWrapper {
                     Clock {
                         objectName: "taskbarClock"
+                    }
+                }
+            }
+            DelegateChoice {
+                roleValue: "pomodoro"
+                delegate: EntryWrapper {
+                    PomodoroIndicator {
+                        objectName: "taskbarPomodoro"
+                        bar: root
                     }
                 }
             }

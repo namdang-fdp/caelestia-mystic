@@ -28,6 +28,8 @@ ShellRoot {
         value: root
     }
 
+    readonly property var _pomodoro: Pomodoro
+
     GSFLoader {}
 
     Background {}
