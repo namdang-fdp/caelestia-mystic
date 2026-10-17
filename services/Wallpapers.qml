@@ -18,9 +18,11 @@ Searcher {
     property bool showPreview: false
     readonly property string current: showPreview ? previewPath : actualCurrent
     property string previewPath
+    property string colourPreviewPath
     property string actualCurrent
     property bool previewColourLock
     property bool pendingPreviewClear
+    readonly property bool previewLoading: getPreviewColoursProc.running
 
     function getCategoryFor(w: FileSystemEntry): string {
         let category = w.parentDir.slice(Paths.wallsdir.length + 1);
@@ -42,8 +44,13 @@ Searcher {
         previewPath = path;
         showPreview = true;
 
-        if (Colours.scheme === "dynamic")
-            getPreviewColoursProc.running = true;
+        if (Colours.scheme === "dynamic" && !getPreviewColoursProc.running)
+            startColourPreview();
+    }
+
+    function startColourPreview(): void {
+        colourPreviewPath = previewPath;
+        getPreviewColoursProc.running = true;
     }
 
     function stopPreview(): void {
@@ -55,8 +62,10 @@ Searcher {
     }
 
     onPreviewColourLockChanged: {
-        if (!previewColourLock && pendingPreviewClear)
+        if (!previewColourLock && pendingPreviewClear) {
+            pendingPreviewClear = false;
             Colours.showPreview = false;
+        }
     }
 
     list: wallpapers.entries
@@ -114,10 +123,21 @@ Searcher {
     Process {
         id: getPreviewColoursProc
 
-        command: ["caelestia", "wallpaper", "-p", root.previewPath, ...root.smartArg]
+        command: ["caelestia", "wallpaper", "-p", root.colourPreviewPath, ...root.smartArg]
+        onExited: {
+            if (root.showPreview && Colours.scheme === "dynamic" && root.previewPath !== root.colourPreviewPath)
+                root.startColourPreview();
+        }
         stdout: StdioCollector {
             onStreamFinished: {
-                Colours.load(text, true);
+                if (!root.showPreview || Colours.scheme !== "dynamic" || root.previewPath !== root.colourPreviewPath)
+                    return;
+                try {
+                    Colours.load(text, true);
+                } catch (error) {
+                    console.warn("Could not preview wallpaper colours:", error);
+                    return;
+                }
                 Colours.showPreview = true;
             }
         }
