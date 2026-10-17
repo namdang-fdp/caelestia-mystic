@@ -25,12 +25,16 @@ PageBase {
         width: root.cappedWidth
         spacing: Tokens.spacing.small
 
+        WallpaperPreview {
+            id: preview
+        }
+
         ButtonRow {
             Layout.bottomMargin: Tokens.spacing.medium
             Layout.alignment: Qt.AlignHCenter
             spacing: Tokens.spacing.small
 
-            IconTextButton {
+            AppearanceButton {
                 icon: "photo_library"
                 text: qsTr("Browse")
                 font: Tokens.font.body.large
@@ -47,13 +51,12 @@ PageBase {
                     filterLabel: qsTr("Image files")
                     filters: Images.validImageExtensions
                     onAccepted: path => {
-                        Wallpapers.setWallpaper(path);
-                        root.nState.closeSubPage();
+                        preview.select(path);
                     }
                 }
             }
 
-            IconTextButton {
+            AppearanceButton {
                 icon: "shuffle"
                 text: qsTr("Random")
                 font: Tokens.font.body.large
@@ -63,9 +66,11 @@ PageBase {
                 verticalPadding: Tokens.padding.medium
                 type: IconTextButton.Tonal
                 onClicked: {
-                    Wallpapers.setRandom();
-                    root.nState.closeSubPage();
+                    const choices = Wallpapers.list.filter(w => w.path !== Wallpapers.actualCurrent);
+                    if (choices.length > 0)
+                        preview.select(choices[Math.floor(Math.random() * choices.length)].path);
                 }
+                disabled: !Wallpapers.list.some(w => w.path !== Wallpapers.actualCurrent)
             }
         }
 
@@ -75,9 +80,9 @@ PageBase {
             source: Quickshell.shellPath("assets/wallpaper.webp")
             text: qsTr("Featured wallpaper")
             fillLabel: false
+            selected: preview.displayedPath === Quickshell.shellPath("assets/wallpaper.webp")
             onClicked: {
-                Wallpapers.setWallpaper(Quickshell.shellPath("assets/wallpaper.webp"));
-                root.nState.closeSubPage();
+                preview.select(Quickshell.shellPath("assets/wallpaper.webp"));
             }
         }
 
@@ -91,7 +96,7 @@ PageBase {
             Layout.fillWidth: true
             visible: localWalls.count > 0
 
-            columns: Config.nexus.wallpapersPerRow
+            columns: Math.max(1, Math.min(Config.nexus.wallpapersPerRow, Math.floor(width / 180)))
             rowSpacing: Tokens.spacing.medium
             columnSpacing: Tokens.spacing.large
 
@@ -114,8 +119,6 @@ PageBase {
                     }
                     list.push(...Object.values(categories));
                     list.sort((a, b) => ((a.parentDir === baseDir) - (b.parentDir === baseDir)) || a.name.localeCompare(b.name));
-                    while (list.length < Config.nexus.wallpapersPerRow)
-                        list.push(null);
                     return list;
                 }
 
@@ -127,6 +130,7 @@ PageBase {
                     enabled: modelData
 
                     source: String(modelData?.path ?? "")
+                    selected: modelData && preview.displayedPath === modelData.path
                     text: {
                         if (!modelData)
                             return "";
@@ -142,8 +146,7 @@ PageBase {
                             root.nState.selectedWallpaperCategory = Wallpapers.getCategoryFor(modelData);
                             root.nState.openSubPage(2); // Category page
                         } else {
-                            Wallpapers.setWallpaper(modelData.path);
-                            root.nState.closeSubPage();
+                            preview.select(modelData.path);
                         }
                     }
                 }

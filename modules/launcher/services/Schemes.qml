@@ -12,6 +12,13 @@ Searcher {
 
     property string currentScheme
     property string currentVariant
+    property string catalogError
+    readonly property bool catalogLoading: getSchemes.running
+
+    function reloadCatalog(): void {
+        catalogError = "";
+        getSchemes.running = true;
+    }
 
     function transformSearch(search: string): string {
         return search.slice(`${GlobalConfig.launcher.actionPrefix}scheme `.length);
@@ -41,9 +48,19 @@ Searcher {
 
         running: true
         command: ["caelestia", "scheme", "list"]
+        onExited: (code, status) => {
+            if (code !== 0 || status !== 0)
+                root.catalogError = qsTr("Could not load colour schemes. Try refreshing the list.");
+        }
         stdout: StdioCollector {
             onStreamFinished: {
-                const schemeData = JSON.parse(text);
+                let schemeData;
+                try {
+                    schemeData = JSON.parse(text);
+                } catch (error) {
+                    root.catalogError = qsTr("Could not load colour schemes. Try refreshing the list.");
+                    return;
+                }
                 const list = Object.entries(schemeData).map(([name, f]) => Object.entries(f).map(([flavour, colours]) => ({
                                 name,
                                 flavour,
