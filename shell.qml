@@ -7,6 +7,7 @@
 
 import "modules"
 import "modules/drawers"
+import "modules/dock"
 import "modules/background"
 import "modules/areapicker"
 import "modules/lock"
@@ -30,6 +31,7 @@ ShellRoot {
 
     Background {}
     Drawers {}
+    Docks {}
     AreaPicker {}
     MonitorProfiles {}
     Lock {

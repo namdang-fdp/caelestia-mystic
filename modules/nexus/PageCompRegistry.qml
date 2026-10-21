@@ -127,6 +127,11 @@ QtObject {
                 Component {
                     BarClock {}
                 }
+
+                // Dock
+                Component {
+                    DockPanel {}
+                }
             }
         },
         Component {

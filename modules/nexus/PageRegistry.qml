@@ -60,7 +60,7 @@ QtObject {
         {
             label: qsTr("Panels"),
             icon: "dock_to_bottom",
-            description: qsTr("Dynamic Island and launcher"),
+            description: qsTr("Dynamic Island, dock and launcher"),
             category: "shell"
         },
         {

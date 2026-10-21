@@ -93,7 +93,9 @@ Singleton {
             rule = "keyword layerrule %1 %2, match:namespace caelestia-drawers";
             trEnabled = transparency.enabled ? 1 : 0;
         }
-        Hypr.extras.batchMessage([rule.arg("blur").arg(trEnabled), rule.arg("ignore_alpha").arg(Math.max(0, transparency.base - 0.03))]);
+        const ignoreAlpha = Math.max(0, transparency.base - 0.03);
+        const dockRule = rule.replace("caelestia-drawers", "caelestia-dock");
+        Hypr.extras.batchMessage([rule.arg("blur").arg(trEnabled), rule.arg("ignore_alpha").arg(ignoreAlpha), dockRule.arg("blur").arg(trEnabled), dockRule.arg("ignore_alpha").arg(ignoreAlpha)]);
     }
 
     function requestReloadHyprRules(): void {

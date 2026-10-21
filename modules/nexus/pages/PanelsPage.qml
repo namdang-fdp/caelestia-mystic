@@ -1,5 +1,6 @@
 import QtQuick.Layouts
 import Caelestia.Config
+import qs.services
 import qs.modules.nexus.common
 
 PageBase {
@@ -19,6 +20,13 @@ PageBase {
             label: qsTr("Dynamic Island")
             status: Config.dashboard.enabled ? qsTr("Enabled") : qsTr("Disabled")
             onClicked: root.nState.openSubPage(1)
+        }
+
+        NavRow {
+            icon: "call_to_action"
+            label: qsTr("Dock")
+            status: DockConfig.enabled ? qsTr("Enabled") : qsTr("Disabled")
+            onClicked: root.nState.openSubPage(10)
         }
 
         NavRow {
