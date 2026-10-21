@@ -44,7 +44,7 @@ Singleton {
     // artist updates (common with mpv-mpris + yt-dlp player) never retrigger it. Watch
     // title/artist too and toast once both are usable.
     function maybeToastNowPlaying(): void {
-        if (!GlobalConfig.utilities.toasts.nowPlaying)
+        if (!GlobalConfig.utilities.toasts.nowPlaying || GlobalConfig.dashboard.enabled)
             return;
 
         const player = root.active;

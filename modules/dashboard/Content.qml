@@ -32,7 +32,7 @@ Item {
             {
                 component: performanceComponent,
                 iconName: "speed",
-                text: qsTr("Performance"),
+                text: qsTr("System"),
                 enabled: Config.dashboard.showPerformance
             },
             {
@@ -45,8 +45,19 @@ Item {
         return allTabs.filter(tab => tab.enabled);
     }
 
-    readonly property real nonAnimWidth: view.implicitWidth + viewWrapper.anchors.margins * 2
-    readonly property real nonAnimHeight: tabs.implicitHeight + tabs.anchors.topMargin + view.implicitHeight + viewWrapper.anchors.margins * 2
+    onDashboardTabsChanged: {
+        if (screenState.dashboardTab >= dashboardTabs.length || screenState.dashboardTab < 0)
+            screenState.dashboardTab = 0;
+    }
+
+    StyledText {
+        anchors.centerIn: parent
+        visible: root.dashboardTabs.length === 0
+        text: qsTr("Enable tabs in Settings → Panels → Dynamic Island")
+    }
+
+    readonly property real nonAnimWidth: (dashboardTabs.length ? view.implicitWidth : 420) + viewWrapper.anchors.margins * 2
+    readonly property real nonAnimHeight: (dashboardTabs.length ? 0 : 80) + tabs.implicitHeight + tabs.anchors.topMargin + view.implicitHeight + viewWrapper.anchors.margins * 2
 
     implicitWidth: nonAnimWidth
     implicitHeight: nonAnimHeight

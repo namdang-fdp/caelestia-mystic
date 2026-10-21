@@ -14,6 +14,7 @@ Item {
     id: root
 
     required property NotifData notif
+    property string textFamily: ""
 
     Layout.fillWidth: true
     implicitHeight: flickable.contentHeight
@@ -180,6 +181,7 @@ Item {
                         id: textComp
 
                         StyledText {
+                            font.family: root.textFamily || Tokens.font.body.small.family
                             text: action.modelData.text
                             color: Colours.palette.m3onSurfaceVariant
                         }

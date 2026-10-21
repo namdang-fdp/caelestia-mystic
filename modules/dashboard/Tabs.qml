@@ -65,14 +65,14 @@ Item {
             const tab = bar.currentItem;
             if (tab)
                 return tab.implicitWidth;
-            const width = (root.nonAnimWidth - bar.spacing * (bar.count - 1)) / bar.count;
+            const width = (root.nonAnimWidth - bar.spacing * (bar.count - 1)) / Math.max(1, bar.count);
             return width;
         }
         implicitHeight: 3
 
         x: {
             const tab = bar.currentItem;
-            const width = (root.nonAnimWidth - bar.spacing * (bar.count - 1)) / bar.count;
+            const width = (root.nonAnimWidth - bar.spacing * (bar.count - 1)) / Math.max(1, bar.count);
             const tabWidth = tab?.implicitWidth ?? width;
             return width * bar.currentIndex + (width - tabWidth) / 2;
         }

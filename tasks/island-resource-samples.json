@@ -1,0 +1,37 @@
+[
+  {
+    "scenario": "Full System tab, silent media fixture present",
+    "pid": 102688,
+    "cpu_one_core_percent": 16.87,
+    "rss_mib": 480.6,
+    "threads": 73
+  },
+  {
+    "scenario": "Compact media playing, silent MPRIS fixture (shared CAVA)",
+    "pid": 102688,
+    "cpu_one_core_percent": 39.87,
+    "rss_mib": 487.5,
+    "threads": 71
+  },
+  {
+    "scenario": "Idle pill after closing fixture and full panels",
+    "pid": 102688,
+    "cpu_one_core_percent": 39.5,
+    "rss_mib": 486.6,
+    "threads": 69
+  },
+  {
+    "scenario": "Final compact media paused, no test fixtures",
+    "pid": 110101,
+    "cpu_one_core_percent": 47.0,
+    "rss_mib": 547.9,
+    "threads": 70
+  },
+  {
+    "scenario": "Final compact paused media after restoration; output volume zero",
+    "pid": 113647,
+    "cpu_one_core_percent": 3.37,
+    "rss_mib": 379.3,
+    "threads": 65
+  }
+]

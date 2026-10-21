@@ -118,6 +118,11 @@ Singleton {
             return root.getMonitor(query)?.brightness ?? -1;
         }
 
+        function infoFor(query: string): string {
+            const m = root.getMonitor(query);
+            return JSON.stringify(m ? {screen: m.modelData.name, internal: m.isInternal, supported: m.supported, brightness: m.brightness, busy: m.busy, error: m.lastError} : {});
+        }
+
         function set(value: string): string {
             return setFor("active", value);
         }
@@ -169,64 +174,76 @@ Singleton {
         readonly property bool isDdc: ddcInfo !== null
         readonly property string busNum: ddcInfo?.busNum ?? ""
         readonly property bool isAppleDisplay: root.appleDisplayPresent && modelData.model.startsWith("StudioDisplay")
+        readonly property bool isInternal: /^(eDP|LVDS|DSI)-/.test(modelData.name)
+        readonly property bool supported: isInternal || isDdc || isAppleDisplay
         property real brightness
         property real queuedBrightness: NaN
+        property string lastError
+        readonly property bool busy: writeProc.running || timer.running || !isNaN(queuedBrightness)
 
         readonly property Process initProc: Process {
             stdout: StdioCollector {
                 onStreamFinished: {
-                    if (monitor.isAppleDisplay) {
-                        const val = parseInt(text.trim());
-                        monitor.brightness = val / 101;
+                    let value = NaN;
+                    if (monitor.isAppleDisplay) value = parseInt(text.trim()) / 101;
+                    else if (monitor.isDdc) {
+                        const match = text.match(/VCP\s+10\s+C\s+(\d+)\s+(\d+)/);
+                        if (match && +match[2] > 0) value = +match[1] / +match[2];
                     } else {
-                        const [, , , cur, max] = text.split(" ");
-                        monitor.brightness = parseInt(cur) / parseInt(max);
+                        const values = text.trim().split(/\s+/);
+                        if (+values[1] > 0) value = +values[0] / +values[1];
                     }
+                    if (Number.isFinite(value) && !monitor.busy) monitor.brightness = Math.max(0, Math.min(1, value));
                 }
             }
         }
 
         readonly property Timer timer: Timer {
-            interval: 500
-            onTriggered: {
-                if (!isNaN(monitor.queuedBrightness)) {
-                    monitor.setBrightness(monitor.queuedBrightness);
+            interval: monitor.isDdc ? 120 : 35
+            onTriggered: monitor.flushBrightness()
+        }
+
+        readonly property Process writeProc: Process {
+            onExited: code => {
+                if (code !== 0) {
                     monitor.queuedBrightness = NaN;
+                    monitor.lastError = monitor.isDdc ? qsTr("Display did not accept brightness. Check its on-screen settings.") : qsTr("Could not change brightness.");
                 }
+                monitor.initBrightness();
+                if (!isNaN(monitor.queuedBrightness)) timer.restart();
             }
         }
 
         function setBrightness(value: real): void {
+            if (!supported || !Number.isFinite(value)) return;
             value = Math.max(0, Math.min(1, value));
             const rounded = Math.round(value * 100);
             if (Math.round(brightness * 100) === rounded)
                 return;
-
-            if (isDdc && timer.running) {
-                queuedBrightness = value;
-                return;
-            }
-
+            lastError = "";
             brightness = value;
+            queuedBrightness = rounded;
+            if (!writeProc.running) timer.restart();
+        }
 
-            if (isAppleDisplay)
-                Quickshell.execDetached(["asdbctl", "set", rounded]);
-            else if (isDdc)
-                Quickshell.execDetached(["ddcutil", "-b", busNum, "setvcp", "10", rounded]);
-            else
-                Quickshell.execDetached(["brightnessctl", "s", `${rounded}%`]);
-
-            if (isDdc)
-                timer.restart();
+        function flushBrightness(): void {
+            if (writeProc.running || isNaN(queuedBrightness)) return;
+            const rounded = queuedBrightness;
+            queuedBrightness = NaN;
+            if (isAppleDisplay) writeProc.command = ["asdbctl", "set", rounded];
+            else if (isDdc) writeProc.command = ["ddcutil", "-b", busNum, "setvcp", "10", rounded];
+            else writeProc.command = ["brightnessctl", "-c", "backlight", "s", `${rounded}%`];
+            writeProc.running = true;
         }
 
         function initBrightness(): void {
+            if (!supported || initProc.running) return;
             if (isAppleDisplay)
                 initProc.command = ["asdbctl", "get"];
             else if (isDdc)
                 initProc.command = ["ddcutil", "-b", busNum, "getvcp", "10", "--brief"];
             else
-                initProc.command = ["sh", "-c", "echo a b c $(brightnessctl g) $(brightnessctl m)"];
+                initProc.command = ["sh", "-c", "brightnessctl -c backlight g; brightnessctl -c backlight m"];
 
             initProc.running = true;
         }

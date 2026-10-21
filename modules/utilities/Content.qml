@@ -3,14 +3,12 @@ import QtQuick
 import QtQuick.Layouts
 import Caelestia.Config
 import qs.components
-import qs.modules.bar.popouts as BarPopouts
 
 Item {
     id: root
 
     required property var props
     required property ScreenState screenState
-    required property BarPopouts.Wrapper popouts
     required property matrix4x4 deformMatrix
 
     readonly property real nonAnimHeight: idleInhibit.nonAnimHeight + record.nonAnimHeight + toggles.implicitHeight + layout.spacing * 2
@@ -46,7 +44,6 @@ Item {
             objectName: "utilitiesQuickToggles"
 
             screenState: root.screenState
-            popouts: root.popouts
         }
     }
 

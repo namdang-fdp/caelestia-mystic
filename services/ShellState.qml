@@ -10,7 +10,7 @@ Singleton {
     property ShellRoot shellRoot
 
     function anySidebarOpen(): bool {
-        return states.instances.some(s => s.sidebar);
+        return states.instances.some(s => s.dashboard && s.islandPage === "notifications");
     }
 
     function forScreen(screen: ShellScreen): ScreenState {

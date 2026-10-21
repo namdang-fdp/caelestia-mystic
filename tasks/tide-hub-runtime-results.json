@@ -1,0 +1,182 @@
+{
+  "core": [
+    {
+      "check": "46px fixed top strip on both outputs",
+      "passed": true
+    },
+    {
+      "check": "Left taskbar reservation removed",
+      "passed": true
+    },
+    {
+      "check": "Legacy taskbar not instantiated",
+      "passed": true
+    },
+    {
+      "check": "Standalone overview IPC unregistered",
+      "passed": true
+    },
+    {
+      "check": "Super+Tab removed",
+      "passed": true
+    },
+    {
+      "check": "Hover opens thumbnail overview without pinning",
+      "passed": true
+    },
+    {
+      "check": "Hover keeps user window focused",
+      "passed": true
+    },
+    {
+      "check": "Hover collapses on leave",
+      "passed": true
+    },
+    {
+      "check": "Open workspaces",
+      "passed": true
+    },
+    {
+      "check": "Open media",
+      "passed": true
+    },
+    {
+      "check": "Open clipboard",
+      "passed": true
+    },
+    {
+      "check": "Open info",
+      "passed": true
+    },
+    {
+      "check": "Open controls",
+      "passed": true
+    },
+    {
+      "check": "Open notifications",
+      "passed": true
+    },
+    {
+      "check": "Open power",
+      "passed": true
+    },
+    {
+      "check": "Expanded views retain top reservation",
+      "passed": true
+    },
+    {
+      "check": "Island toggle closes any current page",
+      "passed": true
+    },
+    {
+      "check": "Old sidebar target routes to bell history",
+      "passed": true
+    },
+    {
+      "check": "Old session target switches to power",
+      "passed": true
+    },
+    {
+      "check": "Launcher closes expanded island",
+      "passed": true
+    },
+    {
+      "check": "Bell history DND uses original service",
+      "passed": true
+    },
+    {
+      "check": "Native Fcitx menu opens without collapsing island",
+      "passed": true
+    },
+    {
+      "check": "Native menu Escape returns to controls",
+      "passed": true
+    },
+    {
+      "check": "Click away closes island after tray menu",
+      "passed": true
+    },
+    {
+      "check": "Utilities corner hover still opens",
+      "passed": true
+    },
+    {
+      "check": "Utilities hover closes on leave",
+      "passed": true
+    },
+    {
+      "check": "Original settings restored byte for byte",
+      "passed": true
+    },
+    {
+      "check": "No closed notification objects retained",
+      "passed": true
+    }
+  ],
+  "workspace": [
+    {
+      "check": "Normal thumbnail \u2192 Default special workspace",
+      "passed": true
+    },
+    {
+      "check": "Special thumbnail \u2192 current normal workspace",
+      "passed": true
+    },
+    {
+      "check": "Normal thumbnail \u2192 workspace 1",
+      "passed": true
+    },
+    {
+      "check": "Default special tile toggles native workspace",
+      "passed": true
+    }
+  ],
+  "screen": [
+    {
+      "check": "Island controls opens on eDP-1",
+      "passed": true
+    },
+    {
+      "check": "Brightness slider updates laptop backlight",
+      "passed": true
+    },
+    {
+      "check": "Idle island hides in fullscreen",
+      "passed": true
+    },
+    {
+      "check": "Explicit island opens over fullscreen",
+      "passed": true
+    },
+    {
+      "check": "Expanded island uses overlay layer",
+      "passed": true
+    },
+    {
+      "check": "Native header power button works over fullscreen",
+      "passed": true
+    },
+    {
+      "check": "Escape returns to fullscreen",
+      "passed": true
+    },
+    {
+      "check": "46px reservation restored after fullscreen",
+      "passed": true
+    }
+  ],
+  "notification": {
+    "freshActionCallback": true,
+    "dismissalPersisted": true,
+    "retainedClosed": 0,
+    "realHistoryRetained": 39
+  },
+  "additionalChecked": [
+    "PipeWire volume and mute UI restored",
+    "Utilities Keep Awake switch and purple badge restored",
+    "Power selection, Escape cancel and close; no power command executed",
+    "GIF preview and picker cancellation; settings restored byte for byte",
+    "Six clipboard contract tests",
+    "Native QML runtime log, git diff --check and luac -p"
+  ]
+}

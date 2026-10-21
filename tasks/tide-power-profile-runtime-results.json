@@ -1,0 +1,30 @@
+[
+  {
+    "check": "Native button sets power-saver",
+    "passed": true
+  },
+  {
+    "check": "Native button sets balanced",
+    "passed": true
+  },
+  {
+    "check": "Native button sets performance",
+    "passed": true
+  },
+  {
+    "check": "Click resting battery opens Info",
+    "passed": true
+  },
+  {
+    "check": "Extra Info height does not resize desktop reservation",
+    "passed": true
+  },
+  {
+    "check": "Profile selector supports keyboard Tab/Space",
+    "passed": true
+  },
+  {
+    "check": "Original machine profile restored",
+    "passed": true
+  }
+]

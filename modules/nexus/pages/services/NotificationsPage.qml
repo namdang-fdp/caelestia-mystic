@@ -184,6 +184,7 @@ PageBase {
         ToggleRow {
             last: true
             text: qsTr("Now playing")
+            subtext: qsTr("Show a separate toast when Dynamic Island is disabled")
             checked: GlobalConfig.utilities.toasts.nowPlaying
             onToggled: GlobalConfig.utilities.toasts.nowPlaying = checked
         }

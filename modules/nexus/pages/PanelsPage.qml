@@ -16,31 +16,18 @@ PageBase {
         NavRow {
             first: true
             icon: "dashboard"
-            label: qsTr("Dashboard")
+            label: qsTr("Dynamic Island")
             status: Config.dashboard.enabled ? qsTr("Enabled") : qsTr("Disabled")
             onClicked: root.nState.openSubPage(1)
         }
 
         NavRow {
-            icon: "dock_to_bottom"
-            label: qsTr("Taskbar")
-            status: Config.bar.persistent ? qsTr("Always visible") : Config.bar.showOnHover ? qsTr("Reveal on hover") : qsTr("Reveal on drag")
-            onClicked: root.nState.openSubPage(2)
-        }
-
-        NavRow {
+            last: true
             icon: "apps"
             label: qsTr("Launcher")
             status: Config.launcher.enabled ? qsTr("Enabled") : qsTr("Disabled")
             onClicked: root.nState.openSubPage(3)
         }
 
-        NavRow {
-            last: true
-            icon: "dock_to_right"
-            label: qsTr("Sidebar")
-            status: Config.sidebar.enabled ? qsTr("Enabled") : qsTr("Disabled")
-            onClicked: root.nState.openSubPage(4)
-        }
     }
 }

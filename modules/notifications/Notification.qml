@@ -16,6 +16,8 @@ StyledRect {
     id: root
 
     required property NotifData modelData
+    property bool inlinePresentation
+    property bool keepPopupOpen
     readonly property bool hasImage: modelData.image.length > 0
     readonly property bool hasAppIcon: modelData.appIcon.length > 0
     readonly property int bodyTextFormat: /[<*_`#\[\]]/.test(modelData.body) ? Text.MarkdownText : Text.PlainText
@@ -27,14 +29,19 @@ StyledRect {
 
     implicitHeight: inner.implicitHeight
 
-    x: implicitWidth
+    x: inlinePresentation ? 0 : implicitWidth
     Component.onCompleted: {
         x = 0;
         modelData.lock(this);
     }
-    Component.onDestruction: modelData.unlock(this)
+    Component.onDestruction: {
+        if (inlinePresentation && modelData.popup && !modelData.closed)
+            modelData.timer.start();
+        modelData.unlock(this);
+    }
 
     Behavior on x {
+        enabled: !root.inlinePresentation
         Anim {
             easing: Tokens.anim.emphasizedDecel
         }
@@ -47,15 +54,15 @@ StyledRect {
         hoverEnabled: true
         cursorShape: root.expanded && body.hoveredLink ? Qt.PointingHandCursor : pressed ? Qt.ClosedHandCursor : undefined
         acceptedButtons: Qt.LeftButton | Qt.MiddleButton
-        preventStealing: true
+        preventStealing: !root.inlinePresentation
 
         onEntered: root.modelData.timer.stop()
         onExited: {
-            if (!pressed)
+            if (!pressed && !root.keepPopupOpen)
                 root.modelData.timer.start();
         }
 
-        drag.target: parent
+        drag.target: root.inlinePresentation ? null : parent
         drag.axis: Drag.XAxis
 
         onPressed: event => {
@@ -65,15 +72,19 @@ StyledRect {
                 root.modelData.close();
         }
         onReleased: event => {
-            if (!containsMouse)
+            if (!containsMouse && !root.keepPopupOpen)
                 root.modelData.timer.start();
 
+            if (root.inlinePresentation)
+                return;
             if (Math.abs(root.x) < root.implicitWidth * Config.notifs.clearThreshold)
                 root.x = 0;
             else
                 root.modelData.popup = false;
         }
         onPositionChanged: event => {
+            if (root.inlinePresentation)
+                return;
             if (pressed) {
                 const diffY = event.y - startY;
                 if (Math.abs(diffY) > Config.notifs.expandThreshold)
