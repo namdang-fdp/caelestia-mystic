@@ -23,6 +23,10 @@ Singleton {
     readonly property alias badgeStyle: adapter.badgeStyle
     readonly property alias showLabels: adapter.showLabels
     readonly property alias bounce: adapter.bounce
+    readonly property alias showClaudeUsage: adapter.showClaudeUsage
+    readonly property alias showCodexUsage: adapter.showCodexUsage
+    readonly property alias usageInterval: adapter.usageInterval
+    readonly property alias usageWarnings: adapter.usageWarnings
 
     readonly property list<string> hideModes: ["never", "smart", "always"]
 
@@ -84,6 +88,11 @@ Singleton {
             property string badgeStyle: "count"
             property bool showLabels: true
             property bool bounce: true
+            // AI plan usage tiles at the end of the dock
+            property bool showClaudeUsage: true
+            property bool showCodexUsage: true
+            property int usageInterval: 5 // minutes
+            property bool usageWarnings: true
         }
     }
 }

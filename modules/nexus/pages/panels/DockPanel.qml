@@ -168,6 +168,44 @@ PageBase {
             onSelected: item => DockConfig.set("badgeStyle", item === root.badgeItems[1] ? "dot" : "count")
         }
 
+        // AI usage
+        SectionHeader {
+            text: qsTr("AI usage")
+        }
+
+        ToggleRow {
+            first: true
+            text: qsTr("Claude")
+            subtext: AiUsage.claude.error || (AiUsage.claude.plan ? qsTr("Plan usage from Claude Code · %1").arg(AiUsage.claude.plan) : qsTr("Plan usage from Claude Code"))
+            checked: DockConfig.showClaudeUsage
+            onToggled: DockConfig.set("showClaudeUsage", checked)
+        }
+
+        ToggleRow {
+            text: qsTr("Codex")
+            subtext: AiUsage.codex.error || (AiUsage.codex.plan ? qsTr("Plan usage from Codex CLI · %1").arg(AiUsage.codex.plan) : qsTr("Plan usage from Codex CLI"))
+            checked: DockConfig.showCodexUsage
+            onToggled: DockConfig.set("showCodexUsage", checked)
+        }
+
+        ToggleRow {
+            text: qsTr("Usage warnings")
+            subtext: qsTr("Notify when a limit passes 80% and 95%")
+            checked: DockConfig.usageWarnings
+            onToggled: DockConfig.set("usageWarnings", checked)
+        }
+
+        StepperRow {
+            last: true
+            label: qsTr("Refresh interval")
+            subtext: qsTr("Minutes between usage updates")
+            value: DockConfig.usageInterval
+            from: 1
+            to: 60
+            stepSize: 1
+            onMoved: v => DockConfig.set("usageInterval", v)
+        }
+
         // Pinned apps
         SectionHeader {
             text: qsTr("Pinned apps")

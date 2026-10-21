@@ -27,13 +27,12 @@ Singleton {
         }
         return keys;
     }
+    readonly property string usagePrefix: "::usage:"
+    readonly property list<string> usageKeys: AiUsage.providers.map(p => usagePrefix + p.key)
     readonly property list<string> items: {
         const running = DockConfig.showRunning ? runningKeys.filter(k => !pinnedKeys.includes(k)) : [];
-        if (running.length === 0)
-            return pinnedKeys;
-        if (pinnedKeys.length === 0)
-            return running;
-        return [...pinnedKeys, separator, ...running];
+        const groups = [pinnedKeys, running, usageKeys].filter(g => g.length > 0);
+        return groups.reduce((all, group, i) => i === 0 ? [...group] : [...all, separator + i, ...group], []);
     }
 
     readonly property string activeKey: Hyprland.activeToplevel ? keyFor(Hyprland.activeToplevel) : ""
@@ -54,7 +53,13 @@ Singleton {
         return lookupCache.get(cls);
     }
 
+    function isSeparator(key: string): bool {
+        return key.startsWith(separator);
+    }
+
     function entryFor(key: string): DesktopEntry {
+        if (key.startsWith("::"))
+            return null;
         return apps.find(a => a.id === key) ?? (apps.length > 0 ? DesktopEntries.heuristicLookup(key) : null);
     }
 

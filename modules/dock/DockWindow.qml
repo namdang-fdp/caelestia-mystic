@@ -44,17 +44,17 @@ StyledWindow {
         const centers = [];
         let x = 0;
         for (const key of shown) {
-            const w = key === Dock.separator ? separatorWidth : iconSize + gap;
+            const w = Dock.isSeparator(key) ? separatorWidth : iconSize + gap;
             centers.push(x + w / 2);
             x += w;
         }
         return centers;
     }
-    readonly property real baseRowWidth: shown.reduce((w, key) => w + (key === Dock.separator ? separatorWidth : iconSize + gap), 0)
+    readonly property real baseRowWidth: shown.reduce((w, key) => w + (Dock.isSeparator(key) ? separatorWidth : iconSize + gap), 0)
     readonly property real baseLeft: (width - baseRowWidth) / 2
 
     property DockItem hoveredItem
-    readonly property bool menuOpen: menu.visible
+    readonly property bool menuOpen: menu.visible || usagePopup.visible
 
     // Magnification
     property real pointerX: -1
@@ -113,6 +113,17 @@ StyledWindow {
         leaving = nextLeaving;
         if (Object.keys(nextLeaving).length > 0)
             leaveTimer.restart();
+    }
+
+    function openUsage(item: DockItem): void {
+        // The focus grab closes the popup on press, so a click on its own tile should not reopen it
+        if (usagePopup.target === item && (usagePopup.visible || Date.now() - usagePopup.closedAt < 300)) {
+            usagePopup.close();
+            return;
+        }
+        usagePopup.visible = false;
+        usagePopup.target = item;
+        usagePopup.visible = true;
     }
 
     function openMenu(item: DockItem): void {
@@ -278,6 +289,12 @@ StyledWindow {
 
     DockMenu {
         id: menu
+
+        dock: root
+    }
+
+    DockUsagePopup {
+        id: usagePopup
 
         dock: root
     }
