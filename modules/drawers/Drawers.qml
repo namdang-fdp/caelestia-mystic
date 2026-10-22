@@ -14,7 +14,7 @@ Variants {
 
         Exclusions {
             screen: scope.modelData
-            bar: content.bar
+            fullscreen: content.hasFullscreen
         }
 
         ContentWindow {

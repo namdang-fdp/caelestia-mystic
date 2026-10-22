@@ -15,6 +15,7 @@ Singleton {
     property bool showPreview
     property string scheme
     property string flavour
+    property string variant
     readonly property bool light: showPreview ? previewLight : currentLight
     property bool currentLight
     property bool previewLight
@@ -66,6 +67,7 @@ Singleton {
         if (!isPreview) {
             root.scheme = scheme.name;
             flavour = scheme.flavour;
+            variant = scheme.variant;
             currentLight = scheme.mode === "light";
         } else {
             previewLight = scheme.mode === "light";
@@ -91,7 +93,9 @@ Singleton {
             rule = "keyword layerrule %1 %2, match:namespace caelestia-drawers";
             trEnabled = transparency.enabled ? 1 : 0;
         }
-        Hypr.extras.batchMessage([rule.arg("blur").arg(trEnabled), rule.arg("ignore_alpha").arg(Math.max(0, transparency.base - 0.03))]);
+        const ignoreAlpha = Math.max(0, transparency.base - 0.03);
+        const dockRule = rule.replace("caelestia-drawers", "caelestia-dock");
+        Hypr.extras.batchMessage([rule.arg("blur").arg(trEnabled), rule.arg("ignore_alpha").arg(ignoreAlpha), dockRule.arg("blur").arg(trEnabled), dockRule.arg("ignore_alpha").arg(ignoreAlpha)]);
     }
 
     function requestReloadHyprRules(): void {

@@ -16,36 +16,33 @@ PageBase {
     }
     isSubPage: true
 
-    GridLayout {
+    ColumnLayout {
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.top: parent.top
         width: root.cappedWidth
 
-        columns: Config.nexus.wallpapersPerRow
-        rowSpacing: Tokens.spacing.medium
-        columnSpacing: Tokens.spacing.large
+        spacing: Tokens.spacing.medium
 
-        Repeater {
-            model: {
-                const walls = Wallpapers.list.filter(w => Wallpapers.getCategoryFor(w) === root.nState.selectedWallpaperCategory).sort((a, b) => a.name.localeCompare(b.name));
-                while (walls.length < Config.nexus.wallpapersPerRow)
-                    walls.push(null);
-                return walls;
-            }
+        WallpaperPreview {
+            id: preview
+        }
 
-            WallItem {
-                required property FileSystemEntry modelData
+        GridLayout {
+            Layout.fillWidth: true
+            columns: Math.max(1, Math.min(Config.nexus.wallpapersPerRow, Math.floor(width / 180)))
+            rowSpacing: Tokens.spacing.medium
+            columnSpacing: Tokens.spacing.large
 
-                // Empty placeholders for sizing
-                opacity: modelData ? 1 : 0
-                enabled: modelData
+            Repeater {
+                model: Wallpapers.list.filter(w => Wallpapers.getCategoryFor(w) === root.nState.selectedWallpaperCategory).sort((a, b) => a.name.localeCompare(b.name))
 
-                source: String(modelData?.path ?? "")
-                text: modelData?.name ?? ""
-                onClicked: {
-                    Wallpapers.setWallpaper(modelData.path);
-                    root.nState.closeSubPage();
-                    root.nState.closeSubPage();
+                WallItem {
+                    required property FileSystemEntry modelData
+
+                    source: modelData.path
+                    text: modelData.name
+                    selected: preview.displayedPath === modelData.path
+                    onClicked: preview.select(modelData.path)
                 }
             }
         }

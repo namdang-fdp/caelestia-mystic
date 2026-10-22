@@ -13,6 +13,9 @@ QtObject {
 
     property bool popup
     property bool closed
+    onClosedChanged: if (closed) Notifs.saveHistory()
+    // Capture the destination at arrival; monitor focus changes must not duplicate a toast.
+    property string popupScreenName
     property var locks: new Set()
 
     property date time: new Date()
@@ -204,13 +207,15 @@ QtObject {
     function unlock(item: Item): void {
         locks.delete(item);
         if (closed)
-            close();
+            // A presenter may be destroyed while a popup-list binding is evaluating.
+            // Release its lock now, then remove the closed entry on the next turn.
+            Qt.callLater(() => notif.close());
     }
 
     function close(): void {
         closed = true;
-        if (locks.size === 0 && Notifs.list.includes(this)) {
-            Notifs.list = Notifs.list.filter(n => n !== this);
+        if (locks.size === 0 && Notifs.list.includes(notif)) {
+            Notifs.list = Notifs.list.filter(n => n !== notif);
             notification?.dismiss();
             destroy();
         }

@@ -16,7 +16,7 @@ Singleton {
 
     property list<NotifData> list: []
     readonly property list<NotifData> notClosed: list.filter(n => !n.closed)
-    readonly property list<NotifData> popups: list.filter(n => n.popup)
+    readonly property list<NotifData> popups: list.filter(n => n.popup && !n.closed)
     property alias dnd: props.dnd
 
     property bool loaded
@@ -47,10 +47,10 @@ Singleton {
             Toaster.toast(qsTr("Do not disturb disabled"), qsTr("Popup notifications are now enabled"), "do_not_disturb_off");
     }
 
-    onListChanged: {
-        if (loaded)
-            saveTimer.restart();
+    function saveHistory(): void {
+        if (loaded) saveTimer.restart();
     }
+    onListChanged: saveHistory()
 
     Timer {
         id: saveTimer
@@ -96,6 +96,7 @@ Singleton {
 
             const comp = notifComp.createObject(root, {
                 popup: root.shouldShowPopup(),
+                popupScreenName: ShellState.forActive()?.modelData.name ?? "",
                 notification: notif
             });
             root.list = [comp, ...root.list];

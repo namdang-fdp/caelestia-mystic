@@ -55,6 +55,8 @@ StyledRect {
     }
 
     StyledText {
+        font: root.props.textFont(Tokens.font.body.small)
+
         id: summary
 
         anchors.top: parent.top
@@ -69,6 +71,8 @@ StyledRect {
     }
 
     StyledText {
+        font: root.props.textFont(Tokens.font.body.small)
+
         id: dummySummary
 
         anchors.top: parent.top
@@ -88,6 +92,8 @@ StyledRect {
         anchors.leftMargin: Tokens.spacing.small
 
         sourceComponent: StyledText {
+        font: root.props.textFont(Tokens.font.body.small)
+
             text: String(root.modelData?.body ?? "").replace(/\n/g, " ")
             color: root.modelData?.urgency === "critical" ? Colours.palette.m3secondary : Colours.palette.m3outline
             elide: Text.ElideRight
@@ -102,10 +108,11 @@ StyledRect {
         anchors.right: parent.right
 
         sourceComponent: StyledText {
+
             animate: true
             text: root.modelData?.timeStr ?? ""
             color: Colours.palette.m3outline
-            font: Tokens.font.body.small
+            font: root.props.textFont(Tokens.font.body.small)
         }
     }
 
@@ -131,6 +138,8 @@ StyledRect {
         spacing: Tokens.spacing.medium
 
         StyledText {
+        font: root.props.textFont(Tokens.font.body.small)
+
             id: bodyText
 
             Layout.fillWidth: true
@@ -142,10 +151,12 @@ StyledRect {
             onLinkActivated: link => {
                 Qt.openUrlExternally(link);
                 root.screenState.sidebar = false;
+                if (root.screenState.islandPage === "notifications") root.screenState.dashboard = false;
             }
         }
 
         NotifActionList {
+            textFamily: root.props.textFamily
             notif: root.modelData
         }
     }

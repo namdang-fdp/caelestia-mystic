@@ -107,7 +107,10 @@ ColumnLayout {
         id: repeater
 
         model: ScriptModel {
-            values: root.Config.bar.entries.filter(e => e.enabled ?? true)
+            values: {
+                const entries = [...root.Config.bar.entries].filter(e => e.id !== "pomodoro");
+                return entries.filter(e => e.enabled ?? true);
+            }
         }
 
         DelegateChooser {

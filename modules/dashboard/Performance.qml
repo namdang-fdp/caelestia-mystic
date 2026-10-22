@@ -40,7 +40,7 @@ Item {
 
             StyledText {
                 Layout.alignment: Qt.AlignHCenter
-                text: qsTr("Enable widgets in the dashboard settings")
+                text: qsTr("Enable widgets in Settings → Panels → Dynamic Island")
                 font: Tokens.font.body.small
                 color: Colours.palette.m3onSurfaceVariant
             }

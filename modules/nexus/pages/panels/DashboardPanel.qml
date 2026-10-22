@@ -2,131 +2,133 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import QtQuick.Layouts
+import Quickshell
 import Caelestia.Config
+import qs.components
+import qs.components.controls
+import qs.components.filedialog
+import qs.services
+import qs.utils
 import qs.modules.nexus.common
 
 PageBase {
     id: root
-
-    title: qsTr("Dashboard")
+    title: qsTr("Dynamic Island")
     isSubPage: true
-
+    property real lastGifSpeed: Math.max(1, Config.general.sessionGifSpeed)
     ColumnLayout {
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.top: parent.top
         width: root.cappedWidth
         spacing: Tokens.spacing.extraSmall / 2
-
-        // General
-        SectionHeader {
-            first: true
-            text: qsTr("General")
-        }
-
+        SectionHeader { first: true; text: qsTr("Island") }
         ToggleRow {
             first: true
             text: qsTr("Enabled")
+            subtext: qsTr("Clock and battery at rest. Super+I opens workspaces, controls and notifications.")
             checked: Config.dashboard.enabled
             onToggled: GlobalConfig.dashboard.enabled = checked
         }
-
         ToggleRow {
-            last: true
-            text: qsTr("Show on hover")
-            subtext: qsTr("Reveal when the cursor reaches the screen edge")
+            text: qsTr("Preview on hover")
+            subtext: qsTr("Show workspace thumbnails on hover without taking keyboard focus.")
             checked: Config.dashboard.showOnHover
             onToggled: GlobalConfig.dashboard.showOnHover = checked
         }
-
-        // Tabs
-        SectionHeader {
-            text: qsTr("Tabs")
-        }
-
         ToggleRow {
-            first: true
-            text: qsTr("Dashboard")
-            checked: Config.dashboard.showDashboard
-            onToggled: GlobalConfig.dashboard.showDashboard = checked
-        }
-
-        ToggleRow {
-            text: qsTr("Media")
+            last: true
+            text: qsTr("Music view")
+            subtext: qsTr("Compact playback, controls and lyrics. Right-click the capsule or use Super+V for clipboard history.")
             checked: Config.dashboard.showMedia
             onToggled: GlobalConfig.dashboard.showMedia = checked
         }
 
-        ToggleRow {
-            text: qsTr("Performance")
-            checked: Config.dashboard.showPerformance
-            onToggled: GlobalConfig.dashboard.showPerformance = checked
-        }
-
-        ToggleRow {
-            last: true
-            text: qsTr("Weather")
-            checked: Config.dashboard.showWeather
-            onToggled: GlobalConfig.dashboard.showWeather = checked
-        }
-
-        // Performance widgets
-        SectionHeader {
-            text: qsTr("Performance widgets")
-        }
-
-        ToggleRow {
-            first: true
-            text: qsTr("Battery")
-            checked: Config.dashboard.performance.showBattery
-            onToggled: GlobalConfig.dashboard.performance.showBattery = checked
-        }
-
-        ToggleRow {
-            text: qsTr("GPU")
-            checked: Config.dashboard.performance.showGpu
-            onToggled: GlobalConfig.dashboard.performance.showGpu = checked
-        }
-
-        ToggleRow {
-            text: qsTr("CPU")
-            checked: Config.dashboard.performance.showCpu
-            onToggled: GlobalConfig.dashboard.performance.showCpu = checked
-        }
-
-        ToggleRow {
-            text: qsTr("Memory")
-            checked: Config.dashboard.performance.showMemory
-            onToggled: GlobalConfig.dashboard.performance.showMemory = checked
-        }
-
-        ToggleRow {
-            text: qsTr("Storage")
-            checked: Config.dashboard.performance.showStorage
-            onToggled: GlobalConfig.dashboard.performance.showStorage = checked
-        }
-
-        ToggleRow {
-            last: true
-            text: qsTr("Network")
-            checked: Config.dashboard.performance.showNetwork
-            onToggled: GlobalConfig.dashboard.performance.showNetwork = checked
-        }
-
-        // Behaviour
-        SectionHeader {
-            text: qsTr("Behaviour")
-        }
-
-        StepperRow {
+        SectionHeader { text: qsTr("Appearance") }
+        ConnectedRect {
+            Layout.fillWidth: true
             first: true
             last: true
-            label: qsTr("Drag threshold")
-            subtext: qsTr("Pixels dragged before the dashboard opens")
-            value: Config.dashboard.dragThreshold
-            from: 0
-            to: 200
-            stepSize: 5
-            onMoved: v => GlobalConfig.dashboard.dragThreshold = v
+            implicitHeight: gifRow.implicitHeight + Tokens.padding.large * 2
+            RowLayout {
+                id: gifRow
+                anchors.fill: parent
+                anchors.margins: Tokens.padding.large
+                spacing: Tokens.spacing.large
+                Rectangle {
+                    Layout.preferredWidth: 88
+                    Layout.preferredHeight: 88
+                    radius: Tokens.rounding.large
+                    color: Colours.tPalette.m3surfaceContainerHigh
+                    AnimatedImage {
+                        id: preview
+                        anchors.fill: parent
+                        anchors.margins: 4
+                        source: Paths.absolutePath(Config.paths.sessionGif)
+                        fillMode: AnimatedImage.PreserveAspectFit
+                        asynchronous: true
+                        speed: Math.max(0.01, Config.general.sessionGifSpeed)
+                        playing: visible && Config.general.sessionGifSpeed > 0
+                        sourceSize.width: width * ((QsWindow.window as QsWindow)?.devicePixelRatio ?? 1)
+                    }
+                    MaterialIcon {
+                        anchors.centerIn: parent
+                        visible: !Config.paths.sessionGif || preview.status === AnimatedImage.Error
+                        text: "hide_image"
+                        fontStyle: Tokens.font.icon.large
+                        color: Colours.palette.m3onSurfaceVariant
+                    }
+                }
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: Tokens.spacing.small
+                    StyledText { text: qsTr("Power menu GIF"); font: Tokens.font.body.medium }
+                    StyledText {
+                        Layout.fillWidth: true
+                        text: preview.status === AnimatedImage.Error ? qsTr("Could not load this GIF") : Paths.shortenHome(Config.paths.sessionGif)
+                        font: Tokens.font.label.small
+                        color: Colours.palette.m3onSurfaceVariant
+                        elide: Text.ElideMiddle
+                    }
+                    IconTextButton {
+                        text: qsTr("Choose GIF")
+                        icon: "folder_open"
+                        type: IconTextButton.Tonal
+                        isRound: true
+                        onClicked: gifDialog.open()
+                        FileDialog {
+                            id: gifDialog
+                            title: qsTr("Choose a power menu GIF")
+                            filterLabel: qsTr("GIF images")
+                            filters: ["gif"]
+                            onAccepted: path => GlobalConfig.paths.sessionGif = path
+                        }
+                    }
+                }
+            }
+        }
+        ToggleRow {
+            Layout.topMargin: Tokens.spacing.small
+            first: true
+            text: qsTr("Animate GIF")
+            subtext: qsTr("Playback runs only while the power menu or this preview is visible.")
+            checked: Config.general.sessionGifSpeed > 0
+            onToggled: {
+                if (!checked) root.lastGifSpeed = Config.general.sessionGifSpeed;
+                GlobalConfig.general.sessionGifSpeed = checked ? root.lastGifSpeed : 0;
+            }
+        }
+        SliderRow {
+            last: true
+            icon: "speed"
+            label: qsTr("GIF playback speed")
+            valueLabel: Config.general.sessionGifSpeed === 0 ? qsTr("Paused") : `${Config.general.sessionGifSpeed.toFixed(1)}×`
+            value: Config.general.sessionGifSpeed / 3
+            onMoved: v => {
+                const speed = Math.round(v * 30) / 10;
+                if (speed > 0) root.lastGifSpeed = speed;
+                GlobalConfig.general.sessionGifSpeed = speed;
+            }
         }
     }
+
 }

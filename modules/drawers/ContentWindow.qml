@@ -11,12 +11,10 @@ import Caelestia.Config
 import qs.components
 import qs.components.containers
 import qs.services
-import qs.modules.bar
 
 StyledWindow {
     id: root
 
-    readonly property alias bar: bar
     readonly property alias interactionWrapper: interactions
 
     readonly property ScreenState screenState: ShellState.forScreen(screen)
@@ -45,32 +43,31 @@ StyledWindow {
     property color surfaceColour: Colours.tPalette.m3surface
 
     readonly property int dragMaskPadding: {
-        if (focusGrab.active || panels.popouts.isDetached)
+        if (focusGrab.active)
             return 0;
 
         if (monitor?.lastIpcObject.specialWorkspace?.name || monitor?.activeWorkspace?.lastIpcObject.windows > 0)
             return 0;
 
         const thresholds = [];
-        for (const panel of ["dashboard", "launcher", "session", "sidebar"])
+        for (const panel of ["launcher"])
             if (contentItem.Config[panel].enabled)
                 thresholds.push(contentItem.Config[panel].dragThreshold);
-        return Math.max(...thresholds);
+        return Math.max(0, ...thresholds);
     }
 
     onHasFullscreenChanged: {
         screenState.launcher = false;
         screenState.session = false;
         screenState.dashboard = false;
-        panels.popouts.close();
     }
 
     name: "drawers"
     WlrLayershell.exclusionMode: ExclusionMode.Ignore
-    WlrLayershell.layer: (fsTransitionProg > 0 && contentItem.Config.general.showOverFullscreen) || (hasSpecialWorkspace && hasFullscreenOnNormalWs) ? WlrLayer.Overlay : WlrLayer.Top
-    WlrLayershell.keyboardFocus: screenState.launcher || screenState.session ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
+    WlrLayershell.layer: panels.dashboard.expanded || (fsTransitionProg > 0 && contentItem.Config.general.showOverFullscreen) || (hasSpecialWorkspace && hasFullscreenOnNormalWs) ? WlrLayer.Overlay : WlrLayer.Top
+    WlrLayershell.keyboardFocus: screenState.launcher || (screenState.dashboard && contentItem.Config.dashboard.enabled) ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
 
-    mask: hasFullscreen ? emptyRegion : regions
+    mask: regions
 
     anchors.top: true
     anchors.bottom: true
@@ -85,26 +82,9 @@ StyledWindow {
         CAnim {}
     }
 
-    Region {
-        id: emptyRegion
-
-        x: panels.notifications.x + bar.implicitWidth
-        y: panels.notifications.y + root.borderThickness
-        width: panels.notifications.width
-        height: panels.notifications.height
-
-        Region {
-            x: root.width - width
-            y: panels.osdWrapper.y + root.borderThickness
-            width: panels.osdWrapper.width * (1 - panels.osd.offsetScale) + root.borderThickness
-            height: panels.osd.height
-        }
-    }
-
     Regions {
         id: regions
 
-        bar: bar
         panels: panels
         win: root
     }
@@ -112,37 +92,20 @@ StyledWindow {
     HyprlandFocusGrab {
         id: focusGrab
 
-        active: {
-            const s = root.screenState;
-            const conf = root.contentItem.Config;
-            if ((s.launcher && conf.launcher.enabled) || (s.session && conf.session.enabled) || (s.sidebar && conf.sidebar.enabled))
-                return true;
-            if (!conf.dashboard.showOnHover && s.dashboard && conf.dashboard.enabled)
-                return true;
-            if (panels.popouts.currentName.startsWith("traymenu") && (panels.popouts.current as StackView)?.depth > 1)
-                return true;
-            return false;
-        }
+        active: (root.screenState.launcher && root.contentItem.Config.launcher.enabled) || (panels.dashboard.expanded && !panels.dashboard.nativeMenuOpen)
         windows: [root]
         onCleared: {
             root.screenState.launcher = false;
             root.screenState.session = false;
             root.screenState.sidebar = false;
-            root.screenState.dashboard = false;
-            panels.popouts.hasCurrent = false;
-            bar.closeTray();
+            panels.dashboard.close();
         }
     }
 
-    StyledRect {
-        anchors.fill: parent
-        opacity: (root.screenState.session && Config.session.enabled) || panels.popouts.detachedMode !== "" ? 0.5 : 0
-        color: Colours.palette.m3scrim
-
-        Behavior on opacity {
-            Anim {
-                type: Anim.SlowEffects
-            }
+    Connections {
+        target: root.screenState
+        function onLauncherChanged(): void {
+            if (root.screenState.launcher) panels.dashboard.close();
         }
     }
 
@@ -168,17 +131,10 @@ StyledWindow {
             anchors.margins: -50 // Make border thicker to smooth out bulge from closed drawers
             group: blobGroup
             radius: root.borderRounding
-            borderLeft: bar.implicitWidth - anchors.margins - root.sdfBorderOffset
+            borderLeft: root.borderThickness - anchors.margins - root.sdfBorderOffset
             borderRight: root.borderThickness - anchors.margins - root.sdfBorderOffset
             borderTop: root.borderThickness - anchors.margins - root.sdfBorderOffset
             borderBottom: root.borderThickness - anchors.margins - root.sdfBorderOffset
-        }
-
-        PanelBg {
-            id: dashBg
-
-            panel: panels.dashboard
-            deformAmount: 0.1
         }
 
         PanelBg {
@@ -189,62 +145,10 @@ StyledWindow {
         }
 
         PanelBg {
-            id: sessionBg
-
-            panel: panels.sessionWrapper
-            deformAmount: 0.2
-            x: panels.sessionWrapper.x + panels.session.x + bar.implicitWidth
-            implicitWidth: panels.session.width
-        }
-
-        PanelBg {
-            id: sidebarBg
-
-            panel: panels.sidebar
-            deformAmount: 0.03
-            implicitHeight: panel.height * (1 / rawDeformMatrix.m22) + 2
-            exclude: panels.sidebar.offsetScale > 0.08 ? [] : [utilsBg]
-            bottomLeftRadius: Math.max(0, Math.min(1, panels.sidebar.offsetScale / 0.3)) * radius
-        }
-
-        PanelBg {
-            id: osdBg
-
-            panel: panels.osdWrapper
-            deformAmount: 0.25
-            x: panels.osdWrapper.x + panels.osd.x + bar.implicitWidth
-            implicitWidth: panels.osd.width
-        }
-
-        PanelBg {
-            id: notifsBg
-
-            panel: panels.notifications
-        }
-
-        PanelBg {
             id: utilsBg
 
             panel: panels.utilities
-            deformAmount: panels.sidebar.visible ? 0.1 : 0.15
-            exclude: panels.sidebar.offsetScale > 0.08 ? [] : [sidebarBg]
-            topLeftRadius: Math.max(0, Math.min(1, panels.sidebar.offsetScale / 0.3)) * radius
-        }
-
-        PanelBg {
-            id: popoutBg
-
-            // Extra width to prevent vertical movement deformation partially detaching panel from bar
-            property real extraWidth: panels.popouts.isDetached ? 0 : 0.2
-
-            panel: panels.popoutsWrapper
-            deformAmount: panels.popouts.isDetached ? 0.05 : panels.popouts.hasCurrent ? 0.15 : 0.1
-            x: panels.popoutsWrapper.x + panels.popouts.x + bar.implicitWidth - panels.popouts.width * extraWidth
-            implicitWidth: panels.popouts.width * (1 + extraWidth)
-
-            Behavior on extraWidth {
-                Anim {}
-            }
+            deformAmount: 0.15
         }
     }
 
@@ -252,10 +156,8 @@ StyledWindow {
         id: interactions
 
         screen: root.screen
-        popouts: panels.popouts
         screenState: root.screenState
         panels: panels
-        bar: bar
         borderThickness: root.borderLayoutThickness
         fullscreen: root.hasFullscreen
 
@@ -264,49 +166,17 @@ StyledWindow {
 
             screen: root.screen
             screenState: root.screenState
-            bar: bar
             borderThickness: root.borderThickness
+            fullscreen: root.hasFullscreen
 
-            utilities.horizontalStretch: (sidebarBg.rawDeformMatrix.m11 - 1) / 2 + 1
             utilities.deformMatrix: utilsBg.rawDeformMatrix
 
-            dashboard.transform: Matrix4x4 {
-                matrix: dashBg.deformMatrix
-            }
             launcher.transform: Matrix4x4 {
                 matrix: launcherBg.deformMatrix
-            }
-            session.transform: Matrix4x4 {
-                matrix: sessionBg.deformMatrix
-            }
-            sidebar.transform: Matrix4x4 {
-                matrix: sidebarBg.deformMatrix
-            }
-            osd.transform: Matrix4x4 {
-                matrix: osdBg.deformMatrix
-            }
-            notifications.transform: Matrix4x4 {
-                matrix: notifsBg.deformMatrix
             }
             utilities.transform: Matrix4x4 {
                 matrix: utilsBg.deformMatrix
             }
-            popouts.transform: Matrix4x4 {
-                matrix: popoutBg.deformMatrix
-            }
-        }
-
-        BarWrapper {
-            id: bar
-
-            anchors.top: parent.top
-            anchors.bottom: parent.bottom
-
-            screen: root.screen
-            screenState: root.screenState
-            popouts: panels.popouts
-
-            fullscreen: root.hasFullscreen
         }
     }
 
@@ -324,12 +194,6 @@ StyledWindow {
 
     ShellState.ComponentRef {
         screen: root.screen
-        slot: "bar"
-        component: bar
-    }
-
-    ShellState.ComponentRef {
-        screen: root.screen
         slot: "panels"
         component: panels
     }
@@ -339,7 +203,7 @@ StyledWindow {
         property real deformAmount: 0.15
 
         group: blobGroup
-        x: panel.x + bar.implicitWidth
+        x: panel.x + root.borderThickness
         y: panel.y + root.borderThickness
         implicitWidth: panel.width
         implicitHeight: panel.height

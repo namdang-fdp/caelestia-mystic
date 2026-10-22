@@ -4,21 +4,22 @@ import QtQuick
 import Quickshell
 import Caelestia.Config
 import qs.components.containers
-import qs.modules.bar as Bar
 
 Scope {
     id: root
 
     required property ShellScreen screen
-    required property Bar.BarWrapper bar
+    required property bool fullscreen
 
     ExclusionZone {
         anchors.left: true
-        exclusiveZone: root.bar.exclusiveZone
     }
 
     ExclusionZone {
         anchors.top: true
+        // Reserve only the resting capsule. Expanded views overlay the desktop
+        // without repeatedly resizing tiled windows during the morph.
+        exclusiveZone: contentItem.Config.dashboard.enabled && !root.fullscreen ? 48 : 0
     }
 
     ExclusionZone {

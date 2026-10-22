@@ -18,11 +18,28 @@ Item {
     property alias radius: imgWrapper.radius
     property alias imgHeight: imgWrapper.implicitHeight
     property bool fillLabel: true
+    property bool selected
 
     signal clicked
 
     Layout.fillWidth: true
     implicitHeight: layout.implicitHeight
+    activeFocusOnTab: true
+    Accessible.role: Accessible.Button
+    Accessible.name: text
+    Accessible.description: selected ? qsTr("Selected wallpaper") : qsTr("Preview wallpaper")
+    Accessible.onPressAction: root.clicked()
+    Keys.onReturnPressed: root.clicked()
+    Keys.onEnterPressed: root.clicked()
+    Keys.onSpacePressed: root.clicked()
+
+    Rectangle {
+        anchors.fill: parent
+        radius: Tokens.rounding.largeIncreased
+        color: "transparent"
+        border.width: root.activeFocus ? 2 : 0
+        border.color: Colours.palette.m3primary
+    }
 
     ColumnLayout {
         id: layout
@@ -101,6 +118,25 @@ Item {
                     }
                 }
             }
+
+            StyledRect {
+                anchors.top: parent.top
+                anchors.right: parent.right
+                anchors.margins: Tokens.padding.small
+                visible: root.selected
+                color: Colours.palette.m3primaryContainer
+                radius: height / 2
+                implicitWidth: selectedIcon.implicitWidth + Tokens.padding.small * 2
+                implicitHeight: implicitWidth
+
+                MaterialIcon {
+                    id: selectedIcon
+                    anchors.centerIn: parent
+                    text: "check"
+                    color: Colours.palette.m3onPrimaryContainer
+                    fontStyle: Tokens.font.icon.small
+                }
+            }
         }
 
         StyledText {
@@ -117,6 +153,9 @@ Item {
 
     StateLayer {
         anchors.bottomMargin: root.fillLabel ? 0 : layout.implicitHeight - imgWrapper.implicitHeight
-        onClicked: root.clicked()
+        onClicked: {
+            root.forceActiveFocus();
+            root.clicked();
+        }
     }
 }

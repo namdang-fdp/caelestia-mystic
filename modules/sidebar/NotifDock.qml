@@ -35,6 +35,7 @@ Item {
         implicitHeight: Math.max(count.implicitHeight, titleText.implicitHeight)
 
         StyledText {
+
             id: count
 
             anchors.verticalCenter: parent.verticalCenter
@@ -44,7 +45,7 @@ Item {
 
             text: root.notifCount
             color: Colours.palette.m3outline
-            font: Tokens.font.label.large
+            font: root.props.textFont(Tokens.font.label.large)
 
             Behavior on anchors.leftMargin {
                 Anim {}
@@ -58,6 +59,7 @@ Item {
         }
 
         StyledText {
+
             id: titleText
 
             anchors.verticalCenter: parent.verticalCenter
@@ -67,7 +69,7 @@ Item {
 
             text: root.notifCount > 0 ? qsTr("notification%1").arg(root.notifCount === 1 ? "" : "s") : qsTr("Notifications")
             color: Colours.palette.m3outline
-            font: Tokens.font.label.large
+            font: root.props.textFont(Tokens.font.label.large)
             elide: Text.ElideRight
         }
     }
@@ -107,10 +109,11 @@ Item {
                 }
 
                 StyledText {
+
                     Layout.alignment: Qt.AlignHCenter
                     text: qsTr("All up to date!")
                     color: Colours.palette.m3outlineVariant
-                    font: Tokens.font.headline.builders.small.width(90).build()
+                    font: root.props.textFont(Tokens.font.headline.builders.small.width(90).build())
                 }
             }
 

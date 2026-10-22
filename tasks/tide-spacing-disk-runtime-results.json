@@ -1,0 +1,40 @@
+[
+  {
+    "name": "Top reservation reduced to 46 pixels on both outputs",
+    "passed": true,
+    "detail": {
+      "eDP-1": [
+        10,
+        46,
+        10,
+        10
+      ],
+      "HDMI-A-1": [
+        10,
+        46,
+        10,
+        10
+      ]
+    }
+  },
+  {
+    "name": "info opens with stable desktop geometry",
+    "passed": true
+  },
+  {
+    "name": "workspaces opens with stable desktop geometry",
+    "passed": true
+  },
+  {
+    "name": "media opens with stable desktop geometry",
+    "passed": true
+  },
+  {
+    "name": "clipboard opens with stable desktop geometry",
+    "passed": true
+  },
+  {
+    "name": "Idle pill is 32 pixels high with stable desktop geometry",
+    "passed": true
+  }
+]

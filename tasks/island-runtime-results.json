@@ -1,0 +1,179 @@
+[
+  {
+    "check": "Top edge does not open preview/full view",
+    "passed": true,
+    "detail": {
+      "screen": "HDMI-A-1",
+      "expanded": false,
+      "preview": false,
+      "tab": 2,
+      "width": 354.078125,
+      "height": 44,
+      "popups": 0
+    }
+  },
+  {
+    "check": "Direct hover opens preview",
+    "passed": true,
+    "detail": {
+      "screen": "HDMI-A-1",
+      "expanded": false,
+      "preview": true,
+      "tab": 2,
+      "width": 380,
+      "height": 148,
+      "popups": 0
+    }
+  },
+  {
+    "check": "Preview closes on exit",
+    "passed": true,
+    "detail": {
+      "screen": "HDMI-A-1",
+      "expanded": false,
+      "preview": false,
+      "tab": 2,
+      "width": 354.0401989328,
+      "height": 44.027262976,
+      "popups": 0
+    }
+  },
+  {
+    "check": "Notification retains full System tab and geometry",
+    "passed": true,
+    "detail": {
+      "screen": "HDMI-A-1",
+      "expanded": true,
+      "preview": false,
+      "tab": 2,
+      "width": 1177,
+      "height": 544,
+      "popups": 1
+    }
+  },
+  {
+    "check": "Burst queue contains three live popups",
+    "passed": true,
+    "detail": {
+      "screen": "HDMI-A-1",
+      "expanded": false,
+      "preview": false,
+      "tab": 2,
+      "width": 440,
+      "height": 106,
+      "popups": 3
+    }
+  },
+  {
+    "check": "Hover holds foreground while pending popups expire",
+    "passed": true,
+    "detail": {
+      "screen": "HDMI-A-1",
+      "expanded": false,
+      "preview": false,
+      "tab": 2,
+      "width": 440,
+      "height": 106,
+      "popups": 2
+    }
+  },
+  {
+    "check": "Expiry restores the pill",
+    "passed": true,
+    "detail": {
+      "screen": "HDMI-A-1",
+      "expanded": false,
+      "preview": false,
+      "tab": 2,
+      "width": 354.078125,
+      "height": 44,
+      "popups": 0
+    }
+  },
+  {
+    "check": "DND suppresses popup presentation",
+    "passed": true,
+    "detail": {
+      "screen": "HDMI-A-1",
+      "expanded": false,
+      "preview": false,
+      "tab": 2,
+      "width": 354.078125,
+      "height": 44,
+      "popups": 0
+    }
+  },
+  {
+    "check": "Popup appears only on arrival monitor",
+    "passed": true,
+    "detail": {
+      "destination": {
+        "screen": "eDP-1",
+        "expanded": false,
+        "preview": false,
+        "tab": 0,
+        "width": 440,
+        "height": 105.99945395681101,
+        "popups": 1
+      },
+      "first": {
+        "screen": "HDMI-A-1",
+        "expanded": false,
+        "preview": false,
+        "tab": 2,
+        "width": 354.078125,
+        "height": 44,
+        "popups": 0
+      }
+    }
+  },
+  {
+    "check": "Escape closes full view",
+    "passed": true,
+    "detail": {
+      "screen": "HDMI-A-1",
+      "expanded": false,
+      "preview": false,
+      "tab": 2,
+      "width": 354.078125,
+      "height": 44,
+      "popups": 0
+    }
+  },
+  {
+    "check": "Click away closes full view",
+    "passed": true,
+    "detail": {
+      "screen": "HDMI-A-1",
+      "expanded": false,
+      "preview": false,
+      "tab": 2,
+      "width": 354.078125,
+      "height": 44,
+      "popups": 0
+    }
+  },
+  {
+    "check": "Legacy Dashboard IPC opens full view",
+    "passed": true,
+    "detail": {
+      "screen": "HDMI-A-1",
+      "expanded": true,
+      "preview": false,
+      "tab": 2,
+      "width": 1177,
+      "height": 544,
+      "popups": 0
+    }
+  },
+  {
+    "check": "Media pause updates MPRIS state",
+    "passed": true,
+    "detail": null
+  },
+  {
+    "check": "Existing media shortcut target resumes playback",
+    "passed": true,
+    "detail": null
+  }
+]

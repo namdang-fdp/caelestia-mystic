@@ -1,0 +1,106 @@
+[
+  {
+    "name": "Both outputs reserve 72 logical pixels at top",
+    "passed": true,
+    "detail": {
+      "eDP-1": [
+        10,
+        72,
+        10,
+        10
+      ],
+      "HDMI-A-1": [
+        10,
+        72,
+        10,
+        10
+      ]
+    }
+  },
+  {
+    "name": "Existing tiled clients moved down by 62 pixels",
+    "passed": true,
+    "detail": null
+  },
+  {
+    "name": "workspaces opens without changing desktop geometry",
+    "passed": true,
+    "detail": null
+  },
+  {
+    "name": "media opens without changing desktop geometry",
+    "passed": true,
+    "detail": null
+  },
+  {
+    "name": "clipboard opens without changing desktop geometry",
+    "passed": true,
+    "detail": null
+  },
+  {
+    "name": "info opens without changing desktop geometry",
+    "passed": true,
+    "detail": null
+  },
+  {
+    "name": "Hover peek retains desktop geometry",
+    "passed": true,
+    "detail": null
+  },
+  {
+    "name": "Leaving peek restores capsule without rearranging clients",
+    "passed": true,
+    "detail": null
+  },
+  {
+    "name": "Info navigation works from another page",
+    "passed": true,
+    "detail": "Clicked Info in Music navigation with one native virtual pointer"
+  },
+  {
+    "name": "Escape closes Info and preserves desktop geometry",
+    "passed": true,
+    "detail": null
+  },
+  {
+    "name": "Calendar next month and return to today visually checked",
+    "passed": true
+  },
+  {
+    "name": "Fullscreen hides island and releases extra top reservation on its output",
+    "passed": true,
+    "detail": null
+  },
+  {
+    "name": "Info cannot open over fullscreen",
+    "passed": true,
+    "detail": null
+  },
+  {
+    "name": "Exiting fullscreen restores 72 pixel top reservation",
+    "passed": true,
+    "detail": null
+  },
+  {
+    "name": "Disabled island releases extra top reservation",
+    "passed": true,
+    "detail": {
+      "eDP-1": [
+        10,
+        10,
+        10,
+        10
+      ],
+      "HDMI-A-1": [
+        10,
+        10,
+        10,
+        10
+      ]
+    }
+  },
+  {
+    "name": "Enabled config restored byte for byte with reservation on both monitors",
+    "passed": true
+  }
+]
