@@ -4,7 +4,7 @@ My Quickshell rice for Hyprland, built on top of the [caelestia](https://github.
 
 ![caelestia-mystic preview](assets/showcase/preview.gif)
 
-🎬 **[Watch the full showcase (1080p, ~95s)](https://github.com/namdang-fdp/caelestia-mystic/releases/tag/showcase-2026-10-22)**
+🎬 **[Watch the full showcase (1920×1200, 60fps, ~2 min)](https://github.com/namdang-fdp/caelestia-mystic/releases/tag/showcase-2026-10-22)**
 
 ## Highlights
 
