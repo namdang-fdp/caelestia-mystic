@@ -28,6 +28,8 @@ ShellRoot {
     }
 
     GSFLoader {}
+    // Restore the saved night light state at startup.
+    Component.onCompleted: NightLight.init()
 
     Background {}
     Drawers {}

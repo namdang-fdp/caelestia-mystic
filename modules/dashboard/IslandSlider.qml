@@ -19,14 +19,14 @@ T.Slider {
     Accessible.name: label
     background: Rectangle {
         radius: height / 2
-        color: "#303236"
+        color: IslandTheme.palette.track
         border.width: root.activeFocus ? 2 : 0
-        border.color: "#8daeff"
+        border.color: IslandTheme.palette.focus
         Rectangle {
             height: parent.height
             width: parent.width * root.visualPosition
             radius: parent.radius
-            color: root.enabled ? "#f3f3f5" : "#777a80"
+            color: root.enabled ? IslandTheme.palette.trackFill : IslandTheme.palette.trackDisabled
         }
         MaterialIcon {
             visible: !root.compact && !!root.iconName
@@ -34,7 +34,7 @@ T.Slider {
             anchors.leftMargin: 11
             anchors.verticalCenter: parent.verticalCenter
             text: root.iconName
-            color: root.visualPosition > .14 ? "#26282b" : "#f3f3f5"
+            color: root.visualPosition > .14 ? IslandTheme.palette.trackFillText : IslandTheme.palette.trackFill
             fontStyle: Tokens.font.icon.small
         }
     }

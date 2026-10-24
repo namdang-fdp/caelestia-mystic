@@ -17,11 +17,8 @@ Singleton {
     readonly property bool warning: batteryWarning > 0 || hot
     readonly property string icon: batteryWarning > 0 ? "battery_alert" : "device_thermostat"
     readonly property string label: batteryWarning > 0 ? qsTr("Battery %1%").arg(Math.round(UPower.displayDevice.percentage * 100)) : qsTr("CPU %1°C").arg(Math.round(temperature))
-    signal alertRaised(string title, string body)
-    onAlertRaised: (title, body) => Quickshell.execDetached(["notify-send", "-a", "Island", "-u", batteryWarning === 2 ? "critical" : "normal", "-i", "dialog-warning", title, body])
-
-    onBatteryWarningChanged: if (batteryWarning > 0) alertRaised(qsTr("Low battery"), qsTr("%1% remaining. Connect your charger.").arg(Math.round(UPower.displayDevice.percentage * 100)))
-    onHotChanged: if (hot) alertRaised(qsTr("CPU temperature is high"), qsTr("%1°C for consecutive samples. Consider Balanced or Power saver.").arg(Math.round(temperature)))
+    // Low battery is announced by BatteryMonitor's toasts; the pill only reflects it.
+    onHotChanged: if (hot) Quickshell.execDetached(["notify-send", "-a", "Island", "-i", "dialog-warning", qsTr("CPU temperature is high"), qsTr("%1°C for consecutive samples. Consider Balanced or Power saver.").arg(Math.round(temperature))])
     function sample(): void { if (!sensor.running) sensor.running = true; }
     Process {
         id: sensor
