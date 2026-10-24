@@ -14,8 +14,6 @@ Region {
         height: root.panels.dashboard.dragging ? root.win.height : 0
     }
     R { panel: root.panels.dashboard }
-    R { panel: root.panels.dashboard.wifiPanel; offsetX: root.panels.dashboard.x; offsetY: root.panels.dashboard.y; extraWidth: 12 }
-    R { panel: root.panels.dashboard.bluetoothPanel; offsetX: root.panels.dashboard.x - 12; offsetY: root.panels.dashboard.y; extraWidth: 12 }
     R { panel: root.panels.launcher; enabled: !root.win.hasFullscreen; height: panel.height * (1 - panel.offsetScale) }
     R { panel: root.panels.utilities; enabled: !root.win.hasFullscreen; height: panel.height * (1 - panel.offsetScale) }
     R { panel: root.panels.toasts; enabled: !root.win.hasFullscreen }

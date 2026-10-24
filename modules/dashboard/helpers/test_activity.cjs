@@ -41,3 +41,27 @@ test('unknown sensor breaks consecutive hot samples and never invents a temperat
  let s=logic.temperatureState(null,1,false); assert.equal(s.samples,0); assert.equal(s.active,false);
  s=logic.temperatureState(400,0,false); assert.equal(s.samples,0);
 });
+test('wheel deltas accumulate touchpad input into whole notches',()=>{
+ let s=logic.wheelSteps(0,40); assert.equal(s.steps,0); assert.equal(s.rest,40);
+ s=logic.wheelSteps(s.rest,90); assert.equal(s.steps,1); assert.equal(s.rest,10);
+ s=logic.wheelSteps(0,-250); assert.equal(s.steps,-2); assert.equal(s.rest,-10);
+ assert.equal(logic.wheelSteps(5,NaN).steps,0);
+});
+test('unit values are clamped and non-finite input is zero',()=>{
+ assert.equal(logic.clampUnit(1.4),1); assert.equal(logic.clampUnit(-1),0); assert.equal(logic.clampUnit(NaN),0); assert.equal(logic.clampUnit(.5),.5);
+});
+test('resting mode cycles through available modes in both directions',()=>{
+ const modes=['auto','lyrics','stats'];
+ assert.equal(logic.nextRestingMode('auto',modes,1),'lyrics');
+ assert.equal(logic.nextRestingMode('stats',modes,1),'auto');
+ assert.equal(logic.nextRestingMode('auto',modes,-1),'stats');
+ assert.equal(logic.nextRestingMode('lyrics',['auto','stats'],1),'auto');
+ assert.equal(logic.nextRestingMode('lyrics',[],1),'auto');
+});
+test('bluetooth icons map common device classes and fall back safely',()=>{
+ assert.equal(logic.bluetoothIcon('audio-headset'),'headphones');
+ assert.equal(logic.bluetoothIcon('audio-card'),'speaker');
+ assert.equal(logic.bluetoothIcon('input-mouse'),'mouse');
+ assert.equal(logic.bluetoothIcon('phone'),'smartphone');
+ assert.equal(logic.bluetoothIcon(undefined),'bluetooth');
+});

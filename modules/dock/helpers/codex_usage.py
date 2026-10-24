@@ -13,6 +13,7 @@ from pathlib import Path
 
 TIMEOUT_SECONDS = 20
 CLIENT_INFO = {"name": "caelestia_dock", "title": "Caelestia Dock", "version": "1.0.0"}
+AUTH_WORDS = ("auth", "login", "log in", "sign in", "signed in", "logged in", "unauthorized", "credential", "api key")
 PLAN_NAMES = {"plus": "Plus", "pro": "Pro", "team": "Team", "business": "Business", "enterprise": "Enterprise", "edu": "Edu", "free": "Free"}
 
 
@@ -20,22 +21,75 @@ class UsageError(Exception):
     pass
 
 
+class NotInstalled(UsageError):
+    pass
+
+
+def codex_candidates() -> list[Path]:
+    home = Path.home()
+    # The ChatGPT desktop app bundles its own CLI
+    return [home / ".local/bin/codex", home / ".npm-global/bin/codex", home / ".bun/bin/codex",
+            home / ".volta/bin/codex", home / ".local/share/pnpm/codex", Path("/usr/bin/codex"),
+            Path("/usr/lib/chatgpt/resources/codex")]
+
+
 def find_codex() -> str | None:
     found = shutil.which("codex")
     if found:
         return found
-    home = Path.home()
-    for candidate in (home / ".local/bin/codex", home / ".npm-global/bin/codex", home / ".bun/bin/codex",
-                      home / ".volta/bin/codex", home / ".local/share/pnpm/codex", Path("/usr/bin/codex")):
+    for candidate in codex_candidates():
         if candidate.is_file() and os.access(candidate, os.X_OK):
             return str(candidate)
     return None
 
 
+def rpc_error(error) -> str:
+    message = str(error.get("message") or "") if isinstance(error, dict) else ""
+    lowered = message.lower()
+    if any(word in lowered for word in AUTH_WORDS):
+        return "Sign in to Codex to see usage"
+    return f"Codex usage request failed: {message[:80]}" if message else "Codex usage request failed"
+
+
+def read_response(fd: int, request_id: int, timeout: float) -> dict:
+    """Read newline separated JSON-RPC messages from fd until the response to request_id arrives.
+
+    Reads the raw fd instead of a buffered file so select() never misses lines already buffered.
+    """
+    selector = selectors.DefaultSelector()
+    selector.register(fd, selectors.EVENT_READ)
+    buffer = b""
+    deadline = time.monotonic() + timeout
+    try:
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise UsageError("Codex usage request timed out")
+            if not selector.select(timeout=remaining):
+                continue
+            chunk = os.read(fd, 65536)
+            if not chunk:
+                raise UsageError("Codex exited before reporting usage")
+            buffer += chunk
+            *lines, buffer = buffer.split(b"\n")
+            for line in lines:
+                try:
+                    message = json.loads(line)
+                except ValueError:
+                    continue
+                if not isinstance(message, dict) or message.get("id") != request_id:
+                    continue
+                if "error" in message:
+                    raise UsageError(rpc_error(message["error"]))
+                return message.get("result") or {}
+    finally:
+        selector.close()
+
+
 def request_rate_limits() -> dict:
     codex = find_codex()
     if codex is None:
-        raise UsageError("Codex CLI is not installed")
+        raise NotInstalled("Codex CLI is not installed")
 
     try:
         process = subprocess.Popen([codex, "app-server", "--stdio"], stdin=subprocess.PIPE,
@@ -50,25 +104,7 @@ def request_rate_limits() -> dict:
             process.stdin.write((json.dumps(message) + "\n").encode())
         process.stdin.flush()
 
-        selector = selectors.DefaultSelector()
-        selector.register(process.stdout, selectors.EVENT_READ)
-        deadline = time.monotonic() + TIMEOUT_SECONDS
-        while time.monotonic() < deadline:
-            if not selector.select(timeout=max(0.0, deadline - time.monotonic())):
-                continue
-            line = process.stdout.readline()
-            if not line:
-                raise UsageError("Codex exited before reporting usage")
-            try:
-                message = json.loads(line)
-            except ValueError:
-                continue
-            if message.get("id") != 2:
-                continue
-            if "error" in message:
-                raise UsageError("Sign in to Codex to see usage")
-            return message.get("result") or {}
-        raise UsageError("Codex usage request timed out")
+        return read_response(process.stdout.fileno(), 2, TIMEOUT_SECONDS)
     finally:
         process.kill()
         process.wait()
@@ -119,7 +155,7 @@ def main() -> None:
     try:
         output = collect()
     except UsageError as exc:
-        output = {"available": False, "plan": "", "limits": [], "error": str(exc)}
+        output = {"available": False, "installed": not isinstance(exc, NotInstalled), "plan": "", "limits": [], "error": str(exc)}
     except Exception:
         output = {"available": False, "plan": "", "limits": [], "error": "Codex usage is unavailable"}
     print(json.dumps(output))

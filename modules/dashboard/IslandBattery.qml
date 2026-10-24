@@ -10,8 +10,8 @@ Rectangle {
     readonly property bool charging: UPower.displayDevice.state === UPowerDeviceState.Charging
     readonly property bool plugged: !UPower.onBattery
     readonly property int percentage: Math.round(UPower.displayDevice.percentage * 100)
-    readonly property color chargingColour: "#8cdea9"
-    readonly property color middleColour: "#f2c66d"
+    readonly property color chargingColour: IslandTheme.palette.successSoft
+    readonly property color middleColour: IslandTheme.palette.warning
     readonly property color statusColour: plugged ? chargingColour : percentage >= 60 ? chargingColour : percentage >= 25 ? middleColour : IslandTheme.palette.m3error
     visible: UPower.displayDevice.isLaptopBattery
     implicitWidth: contents.implicitWidth + 16

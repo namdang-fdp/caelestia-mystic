@@ -42,14 +42,29 @@ Singleton {
             }
         } else if (!loc || timer.elapsed() > 900) {
             Requests.get("https://ipinfo.io/json", text => {
-                const response = JSON.parse(text);
+                let response = {};
+                try { response = JSON.parse(text); } catch (_) {}
                 if (response.loc) {
                     loc = response.loc;
                     city = response.city ?? "";
                     timer.restart();
+                } else {
+                    locateFallback();
                 }
-            });
+            }, () => locateFallback());
         }
+    }
+
+    // ipinfo.io rate-limits anonymous clients; geojs needs no key.
+    function locateFallback(): void {
+        Requests.get("https://get.geojs.io/v1/ip/geo.json", text => {
+            let response = {};
+            try { response = JSON.parse(text); } catch (_) {}
+            if (!response.latitude || !response.longitude) return;
+            city = response.city ?? "";
+            loc = `${response.latitude},${response.longitude}`;
+            timer.restart();
+        });
     }
 
     function fixCityName(cityName: string): string {

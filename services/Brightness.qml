@@ -19,6 +19,20 @@ Singleton {
     }
     readonly property list<Monitor> monitors: variants.instances // qmllint disable incompatible-type
     property bool appleDisplayPresent: false
+    // Explicit backlight device for internal panels; brightnessctl without -d just
+    // picks the first device, which can be a non-functional acpi_video* one.
+    property string backlightDevice
+
+    function pickBacklightDevice(names: var): string {
+        const rank = name => {
+            if (name === "intel_backlight" || name.startsWith("amdgpu_bl") || name.startsWith("nvidia"))
+                return 0;
+            if (name.startsWith("acpi_video"))
+                return 2;
+            return 1;
+        };
+        return names.slice().sort((a, b) => rank(a) - rank(b) || a.localeCompare(b))[0] ?? "";
+    }
 
     function getMonitorForScreen(screen: ShellScreen): var {
         return monitors.find(m => m.modelData === screen); // qmllint disable missing-property
@@ -31,12 +45,12 @@ Singleton {
 
         if (query.startsWith("model:")) {
             const model = query.slice(6);
-            return monitors.find(m => m.modelData.model === model); // qmllint disable missing-property
+            return monitors.find(m => m.modelData?.model === model); // qmllint disable missing-property
         }
 
         if (query.startsWith("serial:")) {
             const serial = query.slice(7);
-            return monitors.find(m => m.modelData.serialNumber === serial); // qmllint disable missing-property
+            return monitors.find(m => m.modelData?.serialNumber === serial); // qmllint disable missing-property
         }
 
         if (query.startsWith("id:")) {
@@ -44,7 +58,7 @@ Singleton {
             return monitors.find(m => Hypr.monitorFor(m.modelData)?.id === id); // qmllint disable missing-property
         }
 
-        return monitors.find(m => m.modelData.name === query); // qmllint disable missing-property
+        return monitors.find(m => m.modelData?.name === query); // qmllint disable missing-property
     }
 
     function increaseBrightness(): void {
@@ -77,6 +91,14 @@ Singleton {
         command: ["sh", "-c", "asdbctl get"] // To avoid warnings if asdbctl is not installed
         stdout: StdioCollector {
             onStreamFinished: root.appleDisplayPresent = text.trim().length > 0
+        }
+    }
+
+    Process {
+        running: true
+        command: ["ls", "-1", "/sys/class/backlight"]
+        stdout: StdioCollector {
+            onStreamFinished: root.backlightDevice = root.pickBacklightDevice(text.trim().split("\n").filter(n => n.length > 0))
         }
     }
 
@@ -120,7 +142,7 @@ Singleton {
 
         function infoFor(query: string): string {
             const m = root.getMonitor(query);
-            return JSON.stringify(m ? {screen: m.modelData.name, internal: m.isInternal, supported: m.supported, brightness: m.brightness, busy: m.busy, error: m.lastError} : {});
+            return JSON.stringify(m ? {screen: m.modelData?.name ?? "", internal: m.isInternal, device: m.isInternal ? root.backlightDevice : "", supported: m.supported, brightness: m.brightness, busy: m.busy, error: m.lastError} : {});
         }
 
         function set(value: string): string {
@@ -160,7 +182,7 @@ Singleton {
 
             monitor.setBrightness(targetBrightness);
 
-            return `Set monitor ${monitor.modelData.name} brightness to ${+monitor.brightness.toFixed(2)}`;
+            return `Set monitor ${monitor.modelData?.name ?? query} brightness to ${+monitor.brightness.toFixed(2)}`;
         }
 
         target: "brightness"
@@ -170,11 +192,13 @@ Singleton {
         id: monitor
 
         required property ShellScreen modelData
-        readonly property var ddcInfo: root.ddcMonitorMap[modelData.name] ?? null
+        // modelData can briefly be null while a screen is hot-unplugged.
+        readonly property string screenName: modelData?.name ?? ""
+        readonly property var ddcInfo: root.ddcMonitorMap[screenName] ?? null
         readonly property bool isDdc: ddcInfo !== null
         readonly property string busNum: ddcInfo?.busNum ?? ""
-        readonly property bool isAppleDisplay: root.appleDisplayPresent && modelData.model.startsWith("StudioDisplay")
-        readonly property bool isInternal: /^(eDP|LVDS|DSI)-/.test(modelData.name)
+        readonly property bool isAppleDisplay: root.appleDisplayPresent && String(modelData?.model ?? "").startsWith("StudioDisplay")
+        readonly property bool isInternal: /^(eDP|LVDS|DSI)-/.test(screenName)
         readonly property bool supported: isInternal || isDdc || isAppleDisplay
         property real brightness
         property real queuedBrightness: NaN
@@ -232,6 +256,7 @@ Singleton {
             queuedBrightness = NaN;
             if (isAppleDisplay) writeProc.command = ["asdbctl", "set", rounded];
             else if (isDdc) writeProc.command = ["ddcutil", "-b", busNum, "setvcp", "10", rounded];
+            else if (root.backlightDevice) writeProc.command = ["brightnessctl", "-d", root.backlightDevice, "s", `${rounded}%`];
             else writeProc.command = ["brightnessctl", "-c", "backlight", "s", `${rounded}%`];
             writeProc.running = true;
         }
@@ -242,6 +267,8 @@ Singleton {
                 initProc.command = ["asdbctl", "get"];
             else if (isDdc)
                 initProc.command = ["ddcutil", "-b", busNum, "getvcp", "10", "--brief"];
+            else if (root.backlightDevice)
+                initProc.command = ["sh", "-c", "brightnessctl -d \"$1\" g; brightnessctl -d \"$1\" m", "sh", root.backlightDevice];
             else
                 initProc.command = ["sh", "-c", "brightnessctl -c backlight g; brightnessctl -c backlight m"];
 
@@ -249,6 +276,14 @@ Singleton {
         }
 
         onBusNumChanged: initBrightness()
+        readonly property Connections deviceWatcher: Connections {
+            function onBacklightDeviceChanged(): void {
+                if (monitor.isInternal)
+                    monitor.initBrightness();
+            }
+
+            target: root
+        }
         Component.onCompleted: initBrightness()
     }
 }

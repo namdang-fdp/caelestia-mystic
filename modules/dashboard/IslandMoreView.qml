@@ -16,8 +16,8 @@ ColumnLayout {
     readonly property var monitor: Brightness.getMonitorForScreen(screen)
     signal pageRequested(string page)
     property bool menuOpen
-    readonly property bool dragging: microphone.dragging
-    implicitHeight: 390 + Math.max(0, trayFlow.implicitHeight - 40)
+    readonly property bool dragging: microphone.dragging || nightLightSlider.pressed
+    implicitHeight: 390 + Math.max(0, trayFlow.implicitHeight - 40) + (nightLightRow.visible ? 46 : 0)
     spacing: 14
 
     RowLayout {
@@ -40,6 +40,37 @@ ColumnLayout {
         Layout.fillWidth: true
         IslandButton { text: qsTr("Keep Awake"); iconName: "coffee"; checked: IdleInhibitor.enabled; onClicked: IdleInhibitor.enabled = !IdleInhibitor.enabled }
         IslandButton { text: qsTr("VPN"); iconName: "vpn_key"; checked: VPN.connected; enabled: VPN.enabled && !VPN.connecting; onClicked: VPN.toggle() }
+        IslandButton { visible: NightLight.available; text: qsTr("Night Light"); iconName: "nightlight"; checked: NightLight.enabled; onClicked: NightLight.toggle() }
+    }
+    RowLayout {
+        id: nightLightRow
+        Layout.fillWidth: true
+        Layout.preferredHeight: 32
+        Layout.topMargin: -2
+        visible: NightLight.available && NightLight.enabled
+        spacing: 10
+        IslandSlider {
+            id: nightLightSlider
+            visible: !NightLight.error
+            Layout.fillWidth: true
+            iconName: "nightlight"
+            label: qsTr("Night light temperature")
+            // Left is warmer: the slider runs from the maximum down to the minimum kelvin.
+            from: NightLight.maximumTemperature
+            to: NightLight.minimumTemperature
+            stepSize: 100
+            value: NightLight.temperature
+            onMoved: NightLight.setTemperature(value)
+        }
+        IslandText {
+            Layout.fillWidth: !!NightLight.error
+            Layout.preferredWidth: 56
+            horizontalAlignment: NightLight.error ? Text.AlignLeft : Text.AlignRight
+            text: NightLight.error ? qsTr("Night light: %1").arg(NightLight.error) : `${NightLight.temperature} K`
+            color: NightLight.error ? IslandTheme.palette.m3error : IslandTheme.palette.m3onSurfaceVariant
+            islandFont: Tokens.font.label.medium
+            elide: Text.ElideRight
+        }
     }
     Flow {
         Layout.fillWidth: true
@@ -47,6 +78,7 @@ ColumnLayout {
         IslandButton { text: qsTr("Spaces"); iconName: "grid_view"; onClicked: root.pageRequested("workspaces") }
         IslandButton { text: qsTr("Clipboard"); iconName: "content_paste"; onClicked: root.pageRequested("clipboard") }
         IslandButton { text: qsTr("Notifications"); iconName: "notifications"; onClicked: root.pageRequested("notifications") }
+        IslandButton { text: qsTr("Weather"); iconName: "partly_cloudy_day"; onClicked: root.pageRequested("weather") }
     }
     Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: Qt.alpha(IslandTheme.palette.m3outline, 0.16) }
     RowLayout {

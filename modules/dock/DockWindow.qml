@@ -9,6 +9,7 @@ import Caelestia.Config
 import qs.components
 import qs.components.containers
 import qs.services
+import "helpers/DockLogic.js" as Logic
 
 StyledWindow {
     id: root
@@ -35,8 +36,11 @@ StyledWindow {
     readonly property real labelSpace: DockConfig.showLabels ? 40 : 0
     readonly property real bounceHeight: Math.round(iconSize * 0.55)
     readonly property real overflow: Math.max(iconSize * (maxZoom - 1) + labelSpace, bounceHeight + labelSpace)
+    // Extra room so a dragged icon can be lifted off the dock with its "Remove" hint visible
+    readonly property real dragSpace: Math.max(0, Math.ceil(iconSize * 1.2 + 36 - pad - overflow))
 
     // Items, including ones playing their exit animation
+    readonly property list<string> items: Dock.itemsFor(monitor)
     property list<string> shown: []
     property var leaving: ({})
 
@@ -55,14 +59,33 @@ StyledWindow {
 
     property DockItem hoveredItem
     readonly property bool menuOpen: menu.visible || usagePopup.visible
+    readonly property bool previewOpen: preview.visible
+    // Hovered running app whose window previews should open
+    readonly property DockItem previewCandidate: hoveredItem?.isApp && hoveredItem.running && !menuOpen && !dragging ? hoveredItem : null
+
+    // Dragging pinned apps to reorder or unpin them
+    property DockItem dragItem
+    readonly property bool dragging: dragItem !== null
+    readonly property string dragKey: dragItem?.modelData ?? ""
+    property int dragFrom: -1
+    property real dragDx
+    property real dragDy
+    property bool instantShift
+    readonly property real dragHeadroom: pad + overflow + dragSpace - 36
+    readonly property int dragTo: dragging ? Logic.dropIndex(dragFrom, dragDx, iconSize + gap, Dock.pinnedKeys.length) : -1
+    readonly property bool dragRemoving: dragging && dragDy < -iconSize * 0.9
+
+    // File drags over the dock
+    property DockItem dropItem
+    readonly property bool dropping: dropItem !== null || dropArea.containsDrag
 
     // Magnification
     property real pointerX: -1
-    property real magFactor: hover.hovered && DockConfig.magnify && !menuOpen ? 1 : 0
+    property real magFactor: hover.hovered && DockConfig.magnify && !menuOpen && !dragging ? 1 : 0
 
     // Visibility
     property bool revealed
-    property bool held: hover.hovered || menuOpen
+    property bool held: hover.hovered || menuOpen || previewOpen || dragging || dropping
     readonly property bool overlapped: {
         const dockW = baseRowWidth + pad * 2;
         const x0 = (screen.width - dockW) / 2;
@@ -101,7 +124,7 @@ StyledWindow {
     }
 
     function sync(): void {
-        const next = [...Dock.items];
+        const next = [...items];
         const nextLeaving = {};
         shown.forEach((key, i) => {
             if (!next.includes(key)) {
@@ -109,6 +132,10 @@ StyledWindow {
                 nextLeaving[key] = true;
             }
         });
+        // Window geometry polling re-evaluates items every second, usually without changes
+        const leavingKeys = Object.keys(nextLeaving);
+        if (next.length === shown.length && next.every((k, i) => k === shown[i]) && leavingKeys.length === Object.keys(leaving).length && leavingKeys.every(k => leaving[k]))
+            return;
         shown = next;
         leaving = nextLeaving;
         if (Object.keys(nextLeaving).length > 0)
@@ -127,12 +154,65 @@ StyledWindow {
     }
 
     function openMenu(item: DockItem): void {
+        closePreview();
         menu.visible = false;
         menu.target = item;
         menu.visible = true;
     }
 
+    function closePreview(): void {
+        previewShowTimer.stop();
+        preview.close();
+    }
+
+    function beginDrag(item: DockItem): void {
+        closePreview();
+        menu.close();
+        usagePopup.close();
+        dragFrom = item.pinIndex;
+        dragDx = 0;
+        dragDy = 0;
+        dragItem = item;
+    }
+
+    function endDrag(): void {
+        dragItem = null;
+        dragFrom = -1;
+        // Lets the caller move neighbours without animation for the rest of this event
+        Qt.callLater(() => root.instantShift = false);
+    }
+
+    function itemDestroyed(item: DockItem): void {
+        if (hoveredItem === item)
+            hoveredItem = null;
+        if (dropItem === item)
+            dropItem = null;
+        if (dragItem === item)
+            endDrag();
+        if (menu.target === item)
+            menu.close();
+        if (preview.target === item)
+            preview.close();
+        if (usagePopup.target === item)
+            usagePopup.close();
+    }
+
     Component.onCompleted: sync()
+    onItemsChanged: sync()
+    onPreviewCandidateChanged: {
+        if (previewCandidate) {
+            previewHideTimer.stop();
+            // Moving between running apps switches the open preview straight away
+            if (preview.visible)
+                preview.show(previewCandidate);
+            else
+                previewShowTimer.restart();
+        } else {
+            previewShowTimer.stop();
+            if (preview.visible)
+                previewHideTimer.restart();
+        }
+    }
 
     name: "dock"
     WlrLayershell.layer: WlrLayer.Top
@@ -142,15 +222,31 @@ StyledWindow {
     anchors.bottom: true
     anchors.left: true
     anchors.right: true
-    implicitHeight: DockConfig.bottomMargin + bgHeight + overflow + 8
+    implicitHeight: DockConfig.bottomMargin + bgHeight + overflow + dragSpace + 8
 
     mask: Region {
-        // Dock body, extended upwards to cover magnified icons
+        // Dock body
         Region {
             x: bg.x
-            y: bg.y + root.hideOffset - (root.magFactor > 0 ? root.overflow : 0)
+            y: bg.y + root.hideOffset
             width: root.shownState ? bg.width : 0
             height: root.shownState ? root.height - y : 0
+        }
+
+        // Magnified icons poking above the body, only around the pointer
+        Region {
+            readonly property real lift: Math.max(0, root.iconSize * (root.maxZoom - 1) * root.magFactor - root.pad) + 6
+
+            x: root.pointerX - root.iconSize * 1.5
+            y: bg.y + root.hideOffset - lift
+            width: root.shownState && root.magFactor > 0 ? root.iconSize * 3 : 0
+            height: lift
+        }
+
+        // Whole surface while an icon is dragged so it can leave the dock
+        Region {
+            width: root.dragging ? root.width : 0
+            height: root.dragging ? root.height : 0
         }
 
         // Bottom edge trigger while hidden
@@ -182,14 +278,6 @@ StyledWindow {
         }
     }
 
-    Connections {
-        function onItemsChanged(): void {
-            root.sync();
-        }
-
-        target: Dock
-    }
-
     Timer {
         id: leaveTimer
 
@@ -207,10 +295,48 @@ StyledWindow {
         onTriggered: root.revealed = false
     }
 
+    Timer {
+        id: previewShowTimer
+
+        interval: 550
+        onTriggered: if (root.previewCandidate) preview.show(root.previewCandidate)
+    }
+
+    Timer {
+        id: previewHideTimer
+
+        // Grace period for moving the pointer from the icon onto the preview
+        interval: 300
+        onTriggered: if (!root.previewCandidate && !preview.hovered) preview.close()
+    }
+
+    Connections {
+        function onHoveredChanged(): void {
+            if (preview.hovered)
+                previewHideTimer.stop();
+            else if (!root.previewCandidate)
+                previewHideTimer.restart();
+        }
+
+        target: preview
+    }
+
     Item {
         id: content
 
         anchors.fill: parent
+
+        // Reveals a hidden dock when files are dragged to the bottom edge
+        DropArea {
+            id: dropArea
+
+            anchors.fill: parent
+            onEntered: {
+                if (!root.shownState)
+                    root.revealed = true;
+            }
+            onDropped: drop => drop.accepted = false
+        }
 
         HoverHandler {
             id: hover
@@ -295,6 +421,12 @@ StyledWindow {
 
     DockUsagePopup {
         id: usagePopup
+
+        dock: root
+    }
+
+    DockPreview {
+        id: preview
 
         dock: root
     }

@@ -80,6 +80,13 @@ PageBase {
         }
 
         ToggleRow {
+            text: qsTr("Show only windows from the current monitor")
+            subtext: qsTr("Each dock lists the apps and windows open on its own screen")
+            checked: DockConfig.currentMonitorOnly
+            onToggled: DockConfig.set("currentMonitorOnly", checked)
+        }
+
+        ToggleRow {
             last: true
             text: qsTr("Bounce on launch")
             subtext: qsTr("Bounce icons while apps open or need attention")
@@ -223,7 +230,8 @@ PageBase {
 
                 required property string modelData
                 required property int index
-                readonly property DesktopEntry entry: DesktopEntries.byId(modelData)
+                // Reads the application list so the row updates once desktop entries load
+                readonly property DesktopEntry entry: DesktopEntries.applications.values.find(a => a.id === modelData) ?? null
 
                 Layout.fillWidth: true
                 first: index === 0

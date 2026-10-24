@@ -43,7 +43,7 @@ Scope {
         if (!state || !island || !island.Config.dashboard.enabled)
             return;
         if (state.dashboard && (!page || island.page === page)) island.close();
-        else island.openPage(page || "controls");
+        else if (!root.hasFullscreen) island.openPage(page || "controls");
     }
 
     function islandClose(): void { ShellState.componentsForActive()?.panels?.dashboard?.close(); }
@@ -64,6 +64,37 @@ Scope {
         name: "islandWindows"
         description: "Toggle Island Windows"
         onPressed: root.toggleIsland("workspaces")
+    }
+
+    // Touchpad gestures from the retired overview now open the Island's windows page.
+    CustomShortcut {
+        name: "workspaceOverview"
+        description: "Toggle Island Windows (overview compatibility)"
+        onPressed: root.toggleIsland("workspaces")
+    }
+
+    CustomShortcut {
+        name: "workspaceOverviewOpen"
+        description: "Open Island Windows"
+        onPressed: {
+            const island = ShellState.componentsForActive()?.panels?.dashboard;
+            if (!root.hasFullscreen && !(island?.expanded && island.page === "workspaces")) island?.openPage("workspaces");
+        }
+    }
+
+    CustomShortcut {
+        name: "workspaceOverviewClose"
+        description: "Close Island Windows"
+        onPressed: {
+            const island = ShellState.componentsForActive()?.panels?.dashboard;
+            if (island?.expanded && island.page === "workspaces") island.close();
+        }
+    }
+
+    CustomShortcut {
+        name: "islandTimer"
+        description: "Toggle Island timer"
+        onPressed: root.toggleIsland("timer")
     }
 
     CustomShortcut {
@@ -178,7 +209,7 @@ Scope {
             const island = ShellState.componentsForActive()?.panels?.dashboard;
             if (!state || !island || !island.Config.dashboard.enabled)
                 return;
-            island.openPage(["workspaces", "media", "clipboard", "info", "controls", "more", "notifications", "power", "connections"].includes(tab) ? tab : "controls");
+            island.openPage(["workspaces", "media", "clipboard", "info", "controls", "more", "notifications", "power", "connections", "wifi", "bluetooth", "timer", "weather"].includes(tab) ? tab : "controls");
         }
 
         function detail(section: string): void {
@@ -201,8 +232,8 @@ Scope {
             return JSON.stringify({screen: state.modelData.name, expanded: island.expanded,
                 visible: island.visible, preview: island.previewOpen, tab: state.dashboardTab,
                 page: island.page, mode: island.mode, notificationExpanded: island.notificationExpanded,
-                wifiOpen: island.wifiOpen, bluetoothOpen: island.bluetoothOpen, inlineDetails: island.inlineDetails,
-                activity: island.activity,
+                activity: island.activity, restingMode: island.restingMode,
+                timer: {active: IslandTimer.active, paused: IslandTimer.paused, remaining: IslandTimer.clock, phase: IslandTimer.phase},
                 resizeMode: WindowUx.resizing, fontFamily: IslandTheme.fontFamily,
                 hovered: island.hovered, previewAllowed: island.previewAllowed,
                 width: island.width, height: island.height, popups: island.pending.length,
@@ -224,6 +255,16 @@ Scope {
         }
 
         target: "dynamicIsland"
+    }
+
+    IpcHandler {
+        function start(minutes: string): void { IslandTimer.start(minutes); }
+        function pomodoro(): void { IslandTimer.startPomodoro(); }
+        function toggle(): void { IslandTimer.toggle(); }
+        function stop(): void { IslandTimer.stop(); }
+        function status(): string { return JSON.stringify({active: IslandTimer.active, paused: IslandTimer.paused, remaining: IslandTimer.clock, phase: IslandTimer.phase, completed: IslandTimer.completed}); }
+
+        target: "islandTimer"
     }
 
     IpcHandler {

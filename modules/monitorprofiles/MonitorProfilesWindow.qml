@@ -36,38 +36,39 @@ StyledWindow {
         }, {
             id: "external-only",
             title: qsTr("External Only"),
-            subtitle: qsTr("Use HDMI at 0x0"),
+            subtitle: qsTr("Use %1 at 0x0").arg(externalName || qsTr("the external display")),
             icon: "desktop_windows"
         }]
 
     property int selectedIndex: Math.max(0, profiles.findIndex(profile => profile.id === controller.selectedProfile))
     readonly property string selectedProfile: profiles[selectedIndex]?.id ?? "auto"
     readonly property string previewProfile: selectedProfile === "auto" ? resolvedAutoProfile() : selectedProfile
-
-    function monitorNamed(name: string): var {
-        return snapshots.find(snapshot => snapshot.name === name) ?? null;
-    }
+    readonly property string laptopName: controller.laptopNameIn(snapshots)
+    readonly property string externalName: controller.externalNameIn(snapshots)
 
     function resolvedAutoProfile(): string {
-        if (monitorNamed(controller.externalConnector) && monitorNamed(controller.laptopConnector))
-            return "home-dual";
-        return "laptop-only";
+        return controller.resolveAuto(snapshots) || "laptop-only";
     }
 
     function profileAvailable(profile: string): bool {
         if (profile === "auto")
-            return !!monitorNamed(controller.laptopConnector);
+            return !!laptopName;
         if (profile === "home-dual")
-            return !!monitorNamed(controller.externalConnector) && !!monitorNamed(controller.laptopConnector);
+            return !!externalName && !!laptopName;
         if (profile === "laptop-only")
-            return !!monitorNamed(controller.laptopConnector);
+            return !!laptopName;
         if (profile === "external-only")
-            return !!monitorNamed(controller.externalConnector);
+            return !!externalName;
         return false;
     }
 
     function selectRelative(delta: int): void {
         selectedIndex = (selectedIndex + delta + profiles.length) % profiles.length;
+    }
+
+    function selectIndex(index: int): void {
+        if (index >= 0 && index < profiles.length)
+            selectedIndex = index;
     }
 
     function applySelected(): void {
@@ -167,9 +168,15 @@ StyledWindow {
         Keys.onPressed: event => {
             if (event.key === Qt.Key_Escape) {
                 root.close();
-            } else if (event.key === Qt.Key_Up || event.key === Qt.Key_K) {
+            } else if (event.key >= Qt.Key_1 && event.key <= Qt.Key_4) {
+                root.selectIndex(event.key - Qt.Key_1);
+            } else if (event.key === Qt.Key_Backtab || (event.key === Qt.Key_Tab && (event.modifiers & Qt.ShiftModifier))) {
                 root.selectRelative(-1);
-            } else if (event.key === Qt.Key_Down || event.key === Qt.Key_J) {
+            } else if (event.key === Qt.Key_Tab) {
+                root.selectRelative(1);
+            } else if (event.key === Qt.Key_Up || event.key === Qt.Key_Left || event.key === Qt.Key_K || event.key === Qt.Key_H) {
+                root.selectRelative(-1);
+            } else if (event.key === Qt.Key_Down || event.key === Qt.Key_Right || event.key === Qt.Key_J || event.key === Qt.Key_L) {
                 root.selectRelative(1);
             } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
                 root.applySelected();
@@ -279,7 +286,7 @@ StyledWindow {
                     StyledText {
                         Layout.alignment: Qt.AlignVCenter
                         visible: root.width >= 850
-                        text: qsTr("↑/↓ or j/k · Enter apply · Esc close")
+                        text: qsTr("1–4 or Tab/arrows · Enter apply · Esc close")
                         color: Colours.palette.m3outline
                         font: Tokens.font.body.small
                     }
@@ -467,7 +474,7 @@ StyledWindow {
 
                                                 StyledText {
                                                     anchors.horizontalCenter: parent.horizontalCenter
-                                                    text: root.controller.externalConnector
+                                                    text: root.externalName || qsTr("External")
                                                     color: Colours.palette.m3onPrimary
                                                     font: Tokens.font.body.small
                                                 }
@@ -496,7 +503,7 @@ StyledWindow {
 
                                                 StyledText {
                                                     anchors.horizontalCenter: parent.horizontalCenter
-                                                    text: root.controller.laptopConnector
+                                                    text: root.laptopName || qsTr("Laptop")
                                                     color: Colours.palette.m3onSecondaryContainer
                                                     font: Tokens.font.body.small
                                                 }
@@ -514,93 +521,107 @@ StyledWindow {
                             font: Tokens.font.body.builders.small.weight(Font.DemiBold).build()
                         }
 
-                        ColumnLayout {
+                        StyledFlickable {
+                            id: monitorList
+
                             Layout.fillWidth: true
-                            spacing: Tokens.spacing.small
+                            Layout.fillHeight: true
+                            clip: true
+                            flickableDirection: Flickable.VerticalFlick
+                            contentWidth: width
+                            contentHeight: monitorColumn.implicitHeight
+                            interactive: contentHeight > height
 
-                            Repeater {
-                                model: root.snapshots
+                            StyledScrollBar.vertical: StyledScrollBar {
+                                flickable: monitorList
+                            }
 
-                                StyledRect {
-                                    id: monitorCard
+                            ColumnLayout {
+                                id: monitorColumn
 
-                                    required property var modelData
+                                width: monitorList.width
+                                spacing: Tokens.spacing.small
 
-                                    Layout.fillWidth: true
-                                    implicitHeight: 92
-                                    radius: Tokens.rounding.largeIncreased
-                                    color: Colours.tPalette.m3surfaceContainer
-                                    border.width: 1
-                                    border.color: Qt.alpha(Colours.palette.m3outlineVariant, 0.35)
+                                Repeater {
+                                    model: root.snapshots
 
-                                    RowLayout {
-                                        anchors.fill: parent
-                                        anchors.margins: Tokens.padding.medium
-                                        spacing: Tokens.spacing.medium
+                                    StyledRect {
+                                        id: monitorCard
 
-                                        StyledRect {
-                                            Layout.alignment: Qt.AlignVCenter
-                                            implicitWidth: 46
-                                            implicitHeight: 46
-                                            radius: Tokens.rounding.full
-                                            color: monitorCard.modelData.enabled ? Colours.palette.m3tertiaryContainer : Colours.tPalette.m3surfaceContainerHighest
+                                        required property var modelData
 
-                                            MaterialIcon {
-                                                anchors.centerIn: parent
-                                                text: monitorCard.modelData.name === root.controller.laptopConnector ? "laptop" : "monitor"
-                                                fill: monitorCard.modelData.enabled ? 1 : 0
-                                                color: monitorCard.modelData.enabled ? Colours.palette.m3onTertiaryContainer : Colours.palette.m3outline
-                                                fontStyle: Tokens.font.icon.medium
+                                        Layout.fillWidth: true
+                                        implicitHeight: 92
+                                        radius: Tokens.rounding.largeIncreased
+                                        color: Colours.tPalette.m3surfaceContainer
+                                        border.width: 1
+                                        border.color: Qt.alpha(Colours.palette.m3outlineVariant, 0.35)
+
+                                        RowLayout {
+                                            anchors.fill: parent
+                                            anchors.margins: Tokens.padding.medium
+                                            spacing: Tokens.spacing.medium
+
+                                            StyledRect {
+                                                Layout.alignment: Qt.AlignVCenter
+                                                implicitWidth: 46
+                                                implicitHeight: 46
+                                                radius: Tokens.rounding.full
+                                                color: monitorCard.modelData.enabled ? Colours.palette.m3tertiaryContainer : Colours.tPalette.m3surfaceContainerHighest
+
+                                                MaterialIcon {
+                                                    anchors.centerIn: parent
+                                                    text: root.controller.isInternalName(monitorCard.modelData.name) ? "laptop" : "monitor"
+                                                    fill: monitorCard.modelData.enabled ? 1 : 0
+                                                    color: monitorCard.modelData.enabled ? Colours.palette.m3onTertiaryContainer : Colours.palette.m3outline
+                                                    fontStyle: Tokens.font.icon.medium
+                                                }
                                             }
-                                        }
 
-                                        ColumnLayout {
-                                            Layout.fillWidth: true
-                                            spacing: 1
-
-                                            RowLayout {
+                                            ColumnLayout {
                                                 Layout.fillWidth: true
+                                                spacing: 1
 
-                                                StyledText {
-                                                    text: monitorCard.modelData.name
-                                                    font: Tokens.font.body.builders.medium.weight(Font.DemiBold).build()
+                                                RowLayout {
+                                                    Layout.fillWidth: true
+
+                                                    StyledText {
+                                                        text: monitorCard.modelData.name
+                                                        font: Tokens.font.body.builders.medium.weight(Font.DemiBold).build()
+                                                    }
+
+                                                    StyledText {
+                                                        Layout.fillWidth: true
+                                                        text: monitorCard.modelData.description
+                                                        color: Colours.palette.m3onSurfaceVariant
+                                                        elide: Text.ElideRight
+                                                        font: Tokens.font.body.small
+                                                    }
+
+                                                    StyledText {
+                                                        text: monitorCard.modelData.enabled ? qsTr("Active") : qsTr("Disabled")
+                                                        color: monitorCard.modelData.enabled ? Colours.palette.m3primary : Colours.palette.m3outline
+                                                        font: Tokens.font.body.small
+                                                    }
                                                 }
 
                                                 StyledText {
                                                     Layout.fillWidth: true
-                                                    text: monitorCard.modelData.description
+                                                    text: qsTr("%1×%2 · %3 · %4x%5 · Scale %6")
+                                                        .arg(monitorCard.modelData.width)
+                                                        .arg(monitorCard.modelData.height)
+                                                        .arg(root.formatRefresh(monitorCard.modelData.refreshRate))
+                                                        .arg(monitorCard.modelData.x)
+                                                        .arg(monitorCard.modelData.y)
+                                                        .arg(root.formatScale(monitorCard.modelData.scale))
                                                     color: Colours.palette.m3onSurfaceVariant
-                                                    elide: Text.ElideRight
                                                     font: Tokens.font.body.small
                                                 }
-
-                                                StyledText {
-                                                    text: monitorCard.modelData.enabled ? qsTr("Active") : qsTr("Disabled")
-                                                    color: monitorCard.modelData.enabled ? Colours.palette.m3primary : Colours.palette.m3outline
-                                                    font: Tokens.font.body.small
-                                                }
-                                            }
-
-                                            StyledText {
-                                                Layout.fillWidth: true
-                                                text: qsTr("%1×%2 · %3 · %4x%5 · Scale %6")
-                                                    .arg(monitorCard.modelData.width)
-                                                    .arg(monitorCard.modelData.height)
-                                                    .arg(root.formatRefresh(monitorCard.modelData.refreshRate))
-                                                    .arg(monitorCard.modelData.x)
-                                                    .arg(monitorCard.modelData.y)
-                                                    .arg(root.formatScale(monitorCard.modelData.scale))
-                                                color: Colours.palette.m3onSurfaceVariant
-                                                font: Tokens.font.body.small
                                             }
                                         }
                                     }
                                 }
                             }
-                        }
-
-                        Item {
-                            Layout.fillHeight: true
                         }
                     }
                 }

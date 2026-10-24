@@ -10,23 +10,64 @@ Singleton {
     readonly property alias running: props.running
     readonly property alias paused: props.paused
     readonly property alias elapsed: props.elapsed
-    readonly property bool busy: pauseProc.running || settle.running
+    // `caelestia record` is a toggle, so every start/stop first checks the real
+    // recorder state and stays busy until the requested state is observed.
+    readonly property bool busy: pauseProc.running || pendingAction !== ""
+
+    property string pendingAction // "", "start" or "stop" while a toggle is in flight
+    property var pendingArgs: []
+    property bool confirming // toggle sent, waiting for pidof to agree
 
     function refresh(): void { if (!checkProc.running) checkProc.running = true; }
     function start(extraArgs = []): void {
-        if (running || busy) return;
-        props.elapsed = 0;
-        Quickshell.execDetached(["caelestia", "record", ...extraArgs]);
-        settle.restart();
+        if (busy) return;
+        pendingArgs = extraArgs;
+        beginAction("start");
     }
     function stop(): void {
-        if (!running || busy) return;
-        // The CLI finalizes/moves the file before notifying the user.
-        Quickshell.execDetached(["caelestia", "record"]);
-        settle.restart();
+        if (busy) return;
+        beginAction("stop");
     }
     function togglePause(): void {
         if (running && !busy) pauseProc.running = true;
+    }
+    function beginAction(action: string): void {
+        pendingAction = action;
+        confirming = false;
+        actionTimeout.restart();
+        preCheckProc.running = true;
+    }
+    function handlePreCheck(isRunning: bool): void {
+        if (!pendingAction || confirming) return;
+        applyRunning(isRunning);
+        // Only toggle when the real state is the opposite of the requested one;
+        // otherwise a stale `running` would make Stop start a new recording.
+        if ((pendingAction === "start") === isRunning) {
+            finishAction();
+            return;
+        }
+        if (pendingAction === "start") {
+            props.elapsed = 0;
+            Quickshell.execDetached(["caelestia", "record", ...pendingArgs]);
+        } else {
+            // The CLI finalizes/moves the file before notifying the user.
+            Quickshell.execDetached(["caelestia", "record"]);
+        }
+        confirming = true;
+        confirmPoll.restart();
+    }
+    function applyRunning(isRunning: bool): void {
+        const wasRunning = props.running;
+        props.running = isRunning;
+        if (!isRunning) props.paused = false;
+        else if (!wasRunning) { props.elapsed = 0; props.paused = false; }
+    }
+    function finishAction(): void {
+        pendingAction = "";
+        pendingArgs = [];
+        confirming = false;
+        confirmPoll.stop();
+        actionTimeout.stop();
     }
     PersistentProperties {
         id: props
@@ -40,11 +81,15 @@ Singleton {
         running: true
         command: ["pidof", "gpu-screen-recorder"]
         onExited: code => {
-            const wasRunning = props.running;
-            props.running = code === 0;
-            if (!props.running) props.paused = false;
-            else if (!wasRunning) { props.elapsed = 0; props.paused = false; }
+            root.applyRunning(code === 0);
+            if (root.confirming && (root.pendingAction === "start") === props.running)
+                root.finishAction();
         }
+    }
+    Process {
+        id: preCheckProc
+        command: ["pidof", "gpu-screen-recorder"]
+        onExited: code => root.handlePreCheck(code === 0)
     }
     Process {
         id: pauseProc
@@ -62,8 +107,14 @@ Singleton {
         printErrors: false
         onFileChanged: { reload(); root.refresh(); }
     }
-    Timer { id: settle; interval: 1200; onTriggered: root.refresh() }
-    Timer { interval: 2000; repeat: true; running: root.running; onTriggered: root.refresh() }
+    Timer { id: confirmPoll; interval: 300; repeat: true; onTriggered: root.refresh() }
+    // Give up waiting for confirmation (e.g. recorder failed to start) and resync.
+    Timer {
+        id: actionTimeout
+        interval: 6000
+        onTriggered: { root.finishAction(); root.refresh(); }
+    }
+    Timer { interval: 2000; repeat: true; running: root.running && !root.busy; onTriggered: root.refresh() }
     Connections {
         target: Time
         enabled: root.running && !root.paused

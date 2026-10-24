@@ -17,8 +17,8 @@ PopupWindow {
     required property DockWindow dock
     property DockItem target
 
-    readonly property bool loading: AiUsage.providers.some(p => p.loading)
-    readonly property real updatedAt: Math.min(...AiUsage.providers.map(p => p.updatedAt || Infinity))
+    readonly property bool loading: AiUsage.shownProviders.some(p => p.loading)
+    readonly property real updatedAt: Math.min(...AiUsage.shownProviders.map(p => p.updatedAt || Infinity))
 
     function close(): void {
         visible = false;
@@ -96,7 +96,7 @@ PopupWindow {
             spacing: Tokens.spacing.medium
 
             Repeater {
-                model: AiUsage.providers
+                model: AiUsage.shownProviders
 
                 ProviderSection {}
             }

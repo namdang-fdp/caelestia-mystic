@@ -7,7 +7,7 @@ import qs.services
 Rectangle {
     id: root
     visible: IdleInhibitor.enabled
-    readonly property color awakeColour: "#cba6f7"
+    readonly property color awakeColour: IslandTheme.palette.awake
     implicitWidth: 28
     implicitHeight: 26
     radius: height / 2
