@@ -12,8 +12,14 @@ import qs.utils
 Scope {
     id: root
 
-    readonly property string laptopConnector: "eDP-1"
-    readonly property string externalConnector: "HDMI-A-1"
+    // Connectors are detected from the live topology: the internal panel is the first
+    // eDP/LVDS/DSI output, the external one prefers the last applied external display
+    // (matched by description) and otherwise falls back to the first other output.
+    readonly property string laptopConnector: laptopNameIn(monitorSnapshots) || storedLaptopConnector
+    readonly property string externalConnector: externalNameIn(monitorSnapshots) || storedExternalConnector
+    property string storedLaptopConnector
+    property string storedExternalConnector
+    property string preferredExternalDescription
     readonly property list<string> validProfiles: ["auto", "home-dual", "laptop-only", "external-only"]
 
     property var monitorSnapshots: []
@@ -45,6 +51,17 @@ Scope {
     property ShellScreen targetScreen
     property var overlaySnapshots: []
 
+    property double verifyDeadline
+    property string operationSignature
+    property bool operationLidClosed
+    property bool discardApplyExit
+
+    // Clamshell: in auto mode a closed lid with an external display means external-only.
+    property string lidStatePath
+    property bool lidRawClosed
+    property bool lidClosed
+    readonly property bool externalPresent: externalNameIn(monitorSnapshots) !== ""
+
     function profileLabel(profile: string): string {
         switch (profile) {
         case "auto":
@@ -69,7 +86,29 @@ Scope {
     }
 
     function hasMonitor(name: string, snapshots = monitorSnapshots): bool {
-        return monitorNamed(name, snapshots) !== null;
+        return !!name && monitorNamed(name, snapshots) !== null;
+    }
+
+    function isInternalName(name: string): bool {
+        return /^(eDP|LVDS|DSI)-/.test(String(name));
+    }
+
+    function laptopNameIn(snapshots = monitorSnapshots): string {
+        return snapshots.find(snapshot => isInternalName(snapshot.name))?.name ?? "";
+    }
+
+    function externalNameIn(snapshots = monitorSnapshots): string {
+        const externals = snapshots.filter(snapshot => !isInternalName(snapshot.name));
+        if (preferredExternalDescription) {
+            const preferred = externals.find(snapshot => snapshot.description === preferredExternalDescription);
+            if (preferred)
+                return preferred.name;
+        }
+        return externals[0]?.name ?? "";
+    }
+
+    function otherNames(keep: string, snapshots = monitorSnapshots): var {
+        return snapshots.filter(snapshot => snapshot.name !== keep).map(snapshot => snapshot.name);
     }
 
     function validScale(value: var): real {
@@ -163,18 +202,24 @@ Scope {
         monitorSnapshots = snapshots;
     }
 
-    function resolveAuto(snapshots = monitorSnapshots): string {
-        if (hasMonitor(externalConnector, snapshots) && hasMonitor(laptopConnector, snapshots))
-            return "home-dual";
-        if (hasMonitor(laptopConnector, snapshots))
+    function resolveAuto(snapshots = monitorSnapshots, closed = lidClosed): string {
+        const laptopName = laptopNameIn(snapshots);
+        const externalName = externalNameIn(snapshots);
+        if (externalName && laptopName)
+            return closed ? "external-only" : "home-dual";
+        if (laptopName)
             return "laptop-only";
         return "";
     }
 
     function makePlan(profile: string, snapshots = monitorSnapshots): var {
         const resolved = profile === "auto" ? resolveAuto(snapshots) : profile;
-        const laptop = monitorNamed(laptopConnector, snapshots);
-        const external = monitorNamed(externalConnector, snapshots);
+        const laptopName = laptopNameIn(snapshots);
+        const externalName = externalNameIn(snapshots);
+        const laptop = monitorNamed(laptopName, snapshots);
+        const external = monitorNamed(externalName, snapshots);
+        const laptopLabel = laptopName || storedLaptopConnector || qsTr("the laptop display");
+        const externalLabel = externalName || storedExternalConnector || qsTr("an external display");
 
         if (!resolved)
             return {
@@ -184,7 +229,7 @@ Scope {
         if (resolved === "home-dual") {
             if (!laptop || !external)
                 return {
-                    error: qsTr("Home Dual requires both %1 and %2").arg(externalConnector).arg(laptopConnector)
+                    error: qsTr("Home Dual requires both %1 and %2").arg(externalLabel).arg(laptopLabel)
                 };
 
             const externalMode = bestPreferredMode(external);
@@ -193,7 +238,7 @@ Scope {
             return {
                 profile: resolved,
                 enabled: [{
-                        name: externalConnector,
+                        name: externalName,
                         width: externalMode.width,
                         height: externalMode.height,
                         refreshRate: externalMode.refreshRate,
@@ -202,7 +247,7 @@ Scope {
                         y: 0,
                         scale: externalScale
                     }, {
-                        name: laptopConnector,
+                        name: laptopName,
                         width: laptopMode.width,
                         height: laptopMode.height,
                         refreshRate: laptopMode.refreshRate,
@@ -212,7 +257,11 @@ Scope {
                         scale: validScale(laptop.scale)
                     }],
                 disabled: [],
+                isolate: "",
                 safetyTarget: "",
+                laptopName,
+                externalName,
+                externalDescription: external.description,
                 title: qsTr("Home Dual applied"),
                 message: qsTr("External left · Laptop right")
             };
@@ -221,13 +270,13 @@ Scope {
         if (resolved === "laptop-only") {
             if (!laptop)
                 return {
-                    error: qsTr("Laptop Only requires %1").arg(laptopConnector)
+                    error: qsTr("Laptop Only requires %1").arg(laptopLabel)
                 };
             const laptopMode = bestPreferredMode(laptop);
             return {
                 profile: resolved,
                 enabled: [{
-                        name: laptopConnector,
+                        name: laptopName,
                         width: laptopMode.width,
                         height: laptopMode.height,
                         refreshRate: laptopMode.refreshRate,
@@ -236,23 +285,27 @@ Scope {
                         y: 0,
                         scale: validScale(laptop.scale)
                     }],
-                disabled: external ? [externalConnector] : [],
-                safetyTarget: laptopConnector,
+                disabled: otherNames(laptopName, snapshots),
+                isolate: laptopName,
+                safetyTarget: laptopName,
+                laptopName,
+                externalName: "",
+                externalDescription: "",
                 title: qsTr("Laptop Mode applied"),
-                message: qsTr("%1 restored to 0x0").arg(laptopConnector)
+                message: qsTr("%1 restored to 0x0").arg(laptopName)
             };
         }
 
         if (resolved === "external-only") {
             if (!external)
                 return {
-                    error: qsTr("External Only requires %1").arg(externalConnector)
+                    error: qsTr("External Only requires %1").arg(externalLabel)
                 };
             const externalMode = bestPreferredMode(external);
             return {
                 profile: resolved,
                 enabled: [{
-                        name: externalConnector,
+                        name: externalName,
                         width: externalMode.width,
                         height: externalMode.height,
                         refreshRate: externalMode.refreshRate,
@@ -261,10 +314,14 @@ Scope {
                         y: 0,
                         scale: validScale(external.scale)
                     }],
-                disabled: laptop ? [laptopConnector] : [],
-                safetyTarget: externalConnector,
+                disabled: otherNames(externalName, snapshots),
+                isolate: externalName,
+                safetyTarget: externalName,
+                laptopName,
+                externalName,
+                externalDescription: external.description,
                 title: qsTr("External Mode applied"),
-                message: qsTr("%1 active at 0x0").arg(externalConnector)
+                message: qsTr("%1 active at 0x0").arg(externalName)
             };
         }
 
@@ -354,16 +411,25 @@ Scope {
         requestTopologyQuery(purpose);
     }
 
+    function isOperationPurpose(purpose: string): bool {
+        return ["preflight", "verify", "final"].includes(purpose);
+    }
+
     function handleTopologyResult(text: string): void {
         const purpose = topologyPurpose;
         topologyPurpose = "";
+        // An empty purpose means the result was already handled or abandoned.
+        if (!purpose) {
+            Qt.callLater(runQueuedTopologyQuery);
+            return;
+        }
         let data;
         try {
             data = JSON.parse(text);
             if (!Array.isArray(data))
                 throw new Error("Hyprland returned a non-array monitor response");
         } catch (error) {
-            if (purpose !== "event")
+            if (isOperationPurpose(purpose))
                 failApply(qsTr("Unable to read connected monitors: %1").arg(error));
             else
                 console.warn(lc, `Unable to parse monitor topology: ${error}`);
@@ -372,6 +438,8 @@ Scope {
         }
 
         updateTopology(data);
+        if (overlayLoader.active && !overlayLoader.closing)
+            overlaySnapshots = cloneSnapshots(monitorSnapshots);
 
         if (purpose === "preflight")
             beginApplyAfterPreflight();
@@ -379,7 +447,7 @@ Scope {
             verifyConfiguredMonitors();
         else if (purpose === "final")
             finishApplyAfterVerification();
-        else
+        else if (purpose !== "overlay")
             maybeApplyPolicy(purpose);
 
         Qt.callLater(runQueuedTopologyQuery);
@@ -403,6 +471,9 @@ Scope {
         }
 
         applying = true;
+        applyTimeout.restart();
+        if (!applyProcess.running)
+            discardApplyExit = false;
         operationRequestedProfile = profile;
         operationSource = source;
         operationChangesSelection = changeSelection;
@@ -415,13 +486,18 @@ Scope {
         if (!applying || operationStage !== "preflight")
             return;
 
+        if (operationRequestedProfile === "auto")
+            syncLidState();
         const plan = makePlan(operationRequestedProfile);
         if (plan.error) {
             failApply(plan.error);
             return;
         }
 
-        if (operationSource !== "startup" && profileMatches(plan)) {
+        operationLidClosed = lidClosed;
+        if (profileMatches(plan)) {
+            // Already in the requested layout: never re-apply (avoids a modeset
+            // flicker on every shell restart) and only confirm manual requests.
             operationPlan = plan;
             completeApply(operationSource === "manual");
             return;
@@ -429,6 +505,7 @@ Scope {
 
         operationPlan = plan;
         operationGeneration = topologyGeneration;
+        operationSignature = topologySignature;
         operationStage = "configure";
         applyProcess.exec(["hyprctl", "eval", configureLua(plan)]);
     }
@@ -445,28 +522,48 @@ Scope {
 
         if (operationStage === "configure") {
             operationStage = "verify";
+            verifyDeadline = Date.now() + verifyWindow;
             verificationTimer.restart();
         } else if (operationStage === "disable") {
             operationStage = "final";
+            verifyDeadline = Date.now() + verifyWindow;
             verificationTimer.restart();
         }
+    }
+
+    // HDMI links can take a second or more to come up, so keep re-querying until the
+    // deadline instead of judging the layout from a single early snapshot.
+    function retryVerification(): bool {
+        if (Date.now() >= verifyDeadline)
+            return false;
+        verificationTimer.restart();
+        return true;
     }
 
     function verifyConfiguredMonitors(): void {
         if (!applying || operationStage !== "verify")
             return;
-        if (topologyGeneration !== operationGeneration) {
-            failApply(qsTr("Monitor topology changed while applying the profile"));
+        if (topologySignature !== operationSignature) {
+            if (!retryVerification())
+                failApply(qsTr("Monitor topology changed while applying the profile"));
             return;
         }
 
         for (const desired of operationPlan.enabled) {
             const current = monitorNamed(desired.name);
             if (!current || !current.enabled) {
-                failApply(qsTr("%1 did not become active; the existing display was left enabled").arg(desired.name));
+                if (!retryVerification())
+                    failApply(qsTr("%1 did not become active; the existing display was left enabled").arg(desired.name));
                 return;
             }
         }
+
+        // Re-derive what to disable from the live topology so a single-display
+        // profile always turns off every other output.
+        if (operationPlan.isolate)
+            operationPlan = Object.assign({}, operationPlan, {
+                disabled: otherNames(operationPlan.isolate)
+            });
 
         if (operationPlan.disabled.length === 0) {
             operationStage = "final";
@@ -481,15 +578,41 @@ Scope {
     function finishApplyAfterVerification(): void {
         if (!applying || operationStage !== "final")
             return;
-        if (topologyGeneration !== operationGeneration) {
-            failApply(qsTr("Monitor topology changed before the profile finished"));
+        if (topologySignature !== operationSignature) {
+            if (!retryVerification())
+                failApply(qsTr("Monitor topology changed before the profile finished"));
             return;
         }
         if (!profileMatches(operationPlan)) {
-            failApply(qsTr("Hyprland did not reach the requested monitor layout"));
+            if (!retryVerification())
+                failApply(qsTr("Hyprland did not reach the requested monitor layout"));
             return;
         }
         completeApply(true);
+    }
+
+    function policyKey(closed = lidClosed): string {
+        const lid = profileMode === "auto" ? (closed ? ":lid-closed" : ":lid-open") : "";
+        return `${profileMode}:${selectedProfile}:${topologySignature}${lid}`;
+    }
+
+    function stopOperationTimers(): void {
+        applyTimeout.stop();
+        verificationTimer.stop();
+    }
+
+    function abortHungApply(): void {
+        if (!applying)
+            return;
+        if (applyProcess.running) {
+            discardApplyExit = true;
+            applyProcess.running = false;
+        }
+        if (topologyProcess.running && isOperationPurpose(topologyPurpose)) {
+            topologyPurpose = "";
+            topologyProcess.running = false;
+        }
+        failApply(qsTr("Timed out waiting for Hyprland to apply the monitor profile"));
     }
 
     function completeApply(showToast: bool): void {
@@ -500,23 +623,40 @@ Scope {
         applying = false;
         operationStage = "";
         operationPlan = null;
+        stopOperationTimers();
 
         if (changesSelection) {
             selectedProfile = requested;
             profileMode = requested === "auto" ? "auto" : "manual";
         }
+        rememberConnectors(plan);
         lastAppliedProfile = plan.profile;
         lastTopologySignature = topologySignature;
-        lastPolicyKey = `${profileMode}:${selectedProfile}:${topologySignature}`;
+        lastPolicyKey = policyKey(operationLidClosed);
         saveState();
 
         if (showToast)
             showSuccess(plan.title, plan.message);
+
+        // The lid may have moved while this profile was being applied.
+        if (lastPolicyKey !== policyKey())
+            Qt.callLater(() => root.requestTopologyQuery("lid"));
+    }
+
+    function rememberConnectors(plan: var): void {
+        if (plan.laptopName)
+            storedLaptopConnector = plan.laptopName;
+        if (plan.externalName) {
+            storedExternalConnector = plan.externalName;
+            if (plan.externalDescription)
+                preferredExternalDescription = plan.externalDescription;
+        }
     }
 
     function failApply(message: string): void {
         if (!applying)
             return;
+        stopOperationTimers();
         applying = false;
         operationStage = "";
         operationPlan = null;
@@ -548,11 +688,14 @@ Scope {
         if (!stateLoaded || applying || monitorSnapshots.length === 0)
             return;
 
+        if (profileMode === "auto")
+            syncLidState();
+
         const isStartup = !startupHandled;
         let requested = profileMode === "auto" ? "auto" : selectedProfile;
         let plan = makePlan(requested);
 
-        if (plan.error && profileMode === "manual" && hasMonitor(laptopConnector) && !hasMonitor(externalConnector)) {
+        if (plan.error && profileMode === "manual" && laptopNameIn() && !externalNameIn()) {
             requested = "laptop-only";
             plan = makePlan(requested);
         }
@@ -563,16 +706,22 @@ Scope {
             return;
         }
 
-        const policyKey = `${profileMode}:${selectedProfile}:${topologySignature}`;
-        if (!isStartup && policyKey === lastPolicyKey && profileMatches(plan))
-            return;
-        if (!isStartup && profileMatches(plan)) {
+        const key = policyKey();
+        if (profileMatches(plan)) {
+            // Nothing to do. On startup this is the common case after a shell
+            // restart, so stay silent and do not touch the monitors.
+            startupHandled = true;
+            if (key === lastPolicyKey)
+                return;
             const profileChanged = lastAppliedProfile !== plan.profile;
-            lastPolicyKey = policyKey;
+            const changed = profileChanged || lastTopologySignature !== topologySignature;
+            lastPolicyKey = key;
             lastAppliedProfile = plan.profile;
             lastTopologySignature = topologySignature;
-            saveState();
-            if (profileChanged)
+            rememberConnectors(plan);
+            if (changed)
+                saveState();
+            if (profileChanged && !isStartup)
                 showSuccess(plan.title, plan.message);
             return;
         }
@@ -590,6 +739,9 @@ Scope {
             selectedProfile = mode === "auto" ? "auto" : selected;
             lastAppliedProfile = validProfiles.includes(data.lastAppliedProfile) && data.lastAppliedProfile !== "auto" ? data.lastAppliedProfile : "";
             lastTopologySignature = String(data.lastTopologySignature ?? "");
+            storedLaptopConnector = String(data.laptopConnector ?? "");
+            storedExternalConnector = String(data.externalConnector ?? "");
+            preferredExternalDescription = String(data.externalDescription ?? "");
         } catch (error) {
             console.warn(lc, `Ignoring invalid monitor profile state: ${error}`);
             profileMode = "auto";
@@ -607,7 +759,10 @@ Scope {
             mode: profileMode,
             selectedProfile,
             lastAppliedProfile,
-            lastTopologySignature
+            lastTopologySignature,
+            laptopConnector: storedLaptopConnector,
+            externalConnector: storedExternalConnector,
+            externalDescription: preferredExternalDescription
         }, null, 2) + "\n");
     }
 
@@ -635,6 +790,41 @@ Scope {
         targetScreen = screen;
         overlaySnapshots = cloneSnapshots(monitorSnapshots);
         overlayLoader.activeAsync = true;
+        // Show the cached snapshot immediately, then refresh it from Hyprland.
+        requestTopologyQuery("overlay");
+    }
+
+    function handleLidText(text: string): void {
+        lidRawClosed = /closed/i.test(text);
+    }
+
+    // Reads the lid synchronously (blockLoading) so topology-driven policy decisions
+    // never act on a stale lid state.
+    function syncLidState(): bool {
+        if (!lidStatePath || !externalPresent)
+            return false;
+        lidFile.reload();
+        handleLidText(lidFile.text());
+        lidDebounce.stop();
+        const changed = lidClosed !== lidRawClosed;
+        lidClosed = lidRawClosed;
+        return changed;
+    }
+
+    function commitLidState(): void {
+        if (lidClosed === lidRawClosed)
+            return;
+        lidClosed = lidRawClosed;
+        console.info(lc, `Laptop lid ${lidClosed ? "closed" : "opened"}`);
+        if (profileMode === "auto" && externalPresent)
+            requestTopologyQuery("lid");
+    }
+
+    onLidRawClosedChanged: {
+        if (lidRawClosed !== lidClosed)
+            lidDebounce.restart();
+        else
+            lidDebounce.stop();
     }
 
     function forceCloseOverlay(): void {
@@ -653,11 +843,65 @@ Scope {
         onTriggered: root.requestTopologyQuery("event")
     }
 
+    readonly property int verifyWindow: 3000
+
     Timer {
         id: verificationTimer
 
         interval: 350
-        onTriggered: root.requestTopologyQuery(root.operationStage === "final" ? "final" : "verify")
+        onTriggered: {
+            if (root.operationStage === "verify" || root.operationStage === "final")
+                root.requestTopologyQuery(root.operationStage);
+        }
+    }
+
+    // A hung hyprctl must never leave `applying` stuck and block future applies.
+    Timer {
+        id: applyTimeout
+
+        interval: 8000
+        onTriggered: root.abortHungApply()
+    }
+
+    Timer {
+        id: lidDebounce
+
+        interval: 1000
+        onTriggered: root.commitLidState()
+    }
+
+    // Light lid poll, only while it can matter (auto mode with an external display).
+    Timer {
+        interval: 2000
+        repeat: true
+        running: root.lidStatePath !== "" && root.profileMode === "auto" && root.externalPresent
+        onTriggered: lidFile.reload()
+    }
+
+    FileView {
+        id: lidFile
+
+        path: root.lidStatePath
+        blockLoading: true
+        printErrors: false
+        onLoaded: root.handleLidText(text())
+    }
+
+    Process {
+        id: lidProbe
+
+        running: true
+        command: ["sh", "-c", "for f in /proc/acpi/button/lid/*/state; do [ -r \"$f\" ] && { echo \"$f\"; break; }; done"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const path = text.trim().split("\n")[0] ?? "";
+                if (!path)
+                    return;
+                root.lidStatePath = path;
+                if (root.syncLidState() && root.profileMode === "auto")
+                    root.requestTopologyQuery("lid");
+            }
+        }
     }
 
     Connections {
@@ -710,14 +954,14 @@ Scope {
             waitForEnd: true
         }
         onExited: exitCode => {
-            if (exitCode !== 0) {
+            if (exitCode !== 0 && root.topologyPurpose) {
                 const purpose = root.topologyPurpose;
                 root.topologyPurpose = "";
                 const detail = topologyStderr.text.trim() || qsTr("hyprctl monitors failed");
-                if (purpose === "event")
-                    console.warn(lc, detail);
-                else
+                if (root.isOperationPurpose(purpose))
                     root.failApply(detail);
+                else
+                    console.warn(lc, detail);
             }
             Qt.callLater(root.runQueuedTopologyQuery);
         }
@@ -736,7 +980,13 @@ Scope {
 
             waitForEnd: true
         }
-        onExited: exitCode => root.handleApplyExit(exitCode)
+        onExited: exitCode => {
+            if (root.discardApplyExit) {
+                root.discardApplyExit = false;
+                return;
+            }
+            root.handleApplyExit(exitCode);
+        }
     }
 
     LazyLoader {
@@ -783,6 +1033,16 @@ Scope {
 
         function topology(): string {
             return JSON.stringify(root.monitorSnapshots);
+        }
+
+        function lid(): string {
+            return JSON.stringify({
+                path: root.lidStatePath,
+                closed: root.lidClosed,
+                raw: root.lidRawClosed,
+                laptop: root.laptopConnector,
+                external: root.externalConnector
+            });
         }
 
         function apply(profile: string): string {

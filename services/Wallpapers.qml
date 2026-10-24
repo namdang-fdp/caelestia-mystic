@@ -22,6 +22,7 @@ Searcher {
     property string actualCurrent
     property bool previewColourLock
     property bool pendingPreviewClear
+    property string queuedSetPath
     readonly property bool previewLoading: getPreviewColoursProc.running
 
     function getCategoryFor(w: FileSystemEntry): string {
@@ -37,7 +38,32 @@ Searcher {
 
     function setWallpaper(path: string): void {
         actualCurrent = path;
-        Quickshell.execDetached(["caelestia", "wallpaper", "-f", path, ...smartArg]);
+        lockReleaseGrace.stop();
+        if (setWallpaperProc.running) {
+            queuedSetPath = path;
+            return;
+        }
+        setWallpaperProc.command = ["caelestia", "wallpaper", "-f", path, ...smartArg];
+        setWallpaperProc.running = true;
+    }
+
+    // The preview palette is normally released when path.txt reloads, but that never
+    // happens if the CLI fails (or sets the same path), so also release it here.
+    function handleSetExited(exitCode: int): void {
+        if (exitCode !== 0) {
+            console.warn("Could not set wallpaper:", setWallpaperStderr.text.trim() || `exit code ${exitCode}`);
+            currentNameFile.reload();
+            previewColourLock = false;
+        } else if (previewColourLock) {
+            // Let the scheme/path watchers catch up before dropping the preview palette.
+            lockReleaseGrace.restart();
+        }
+
+        if (queuedSetPath) {
+            const path = queuedSetPath;
+            queuedSetPath = "";
+            setWallpaper(path);
+        }
     }
 
     function preview(path: string): void {
@@ -62,6 +88,10 @@ Searcher {
     }
 
     onPreviewColourLockChanged: {
+        if (previewColourLock)
+            lockTimeout.restart();
+        else
+            lockTimeout.stop();
         if (!previewColourLock && pendingPreviewClear) {
             pendingPreviewClear = false;
             Colours.showPreview = false;
@@ -92,6 +122,8 @@ Searcher {
     }
 
     FileView {
+        id: currentNameFile
+
         path: root.currentNamePath
         watchChanges: true
         printErrors: false
@@ -118,6 +150,30 @@ Searcher {
         recursive: true
         path: Paths.wallsdir
         filter: FileSystemModel.Images
+    }
+
+    Process {
+        id: setWallpaperProc
+
+        stderr: StdioCollector {
+            id: setWallpaperStderr
+        }
+        onExited: exitCode => root.handleSetExited(exitCode)
+    }
+
+    Timer {
+        id: lockReleaseGrace
+
+        interval: 1500
+        onTriggered: root.previewColourLock = false
+    }
+
+    // Fallback so a hung CLI can never pin the preview palette for the session.
+    Timer {
+        id: lockTimeout
+
+        interval: 10000
+        onTriggered: root.previewColourLock = false
     }
 
     Process {
