@@ -16,6 +16,7 @@ My Quickshell rice for Hyprland, built on top of the [caelestia](https://github.
   - Wi-Fi and Bluetooth pages: inline password entry, known/nearby networks, pairing, device battery, forget
 - **Notification centre**: popups (click to open the app, images, urgent styling) and grouped history inside the island
 - **macOS-style dock**: pinned and running apps, drag to reorder, window previews, badges, plus Claude and Codex plan usage tiles
+- **Lock screen**: clean island-style lock with blurred wallpaper, now playing, fingerprint hints and private notification count
 - **Monitor profiles**: laptop/external/dual layouts with auto mode and clamshell switching
 - **Nexus settings**: wallpaper and style, audio, panels, apps and more
 - **Dynamic colours**: palette regenerates from the wallpaper
