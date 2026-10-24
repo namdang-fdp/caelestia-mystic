@@ -4,6 +4,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import qs.utils
+import "../modules/dock/helpers/DockLogic.js" as Logic
 
 // Dock settings live in their own file because the Caelestia config schema is
 // compiled into the C++ plugin and cannot be extended from QML.
@@ -18,6 +19,7 @@ Singleton {
     readonly property alias hideMode: adapter.hideMode
     readonly property alias bottomMargin: adapter.bottomMargin
     readonly property alias showRunning: adapter.showRunning
+    readonly property alias currentMonitorOnly: adapter.currentMonitorOnly
     readonly property alias showIndicators: adapter.showIndicators
     readonly property alias showBadges: adapter.showBadges
     readonly property alias badgeStyle: adapter.badgeStyle
@@ -57,6 +59,13 @@ Singleton {
         adapter.pinnedApps = list;
     }
 
+    // Moves id to index `to` among the pins in `visible`, as ordered on the dock
+    function movePinnedTo(id: string, visible: list<string>, to: int): void {
+        const list = Logic.reorderPinned(adapter.pinnedApps, visible, id, to);
+        if (list.some((k, i) => k !== adapter.pinnedApps[i]))
+            adapter.pinnedApps = list;
+    }
+
     FileView {
         path: `${Paths.config}/dock.json`
         watchChanges: true
@@ -82,6 +91,8 @@ Singleton {
             property string hideMode: "smart"
             property int bottomMargin: 8
             property bool showRunning: true
+            // Only list windows on the dock's own monitor
+            property bool currentMonitorOnly: false
             property bool showIndicators: true
             property bool showBadges: true
             // count: numbered pill; dot: plain dot

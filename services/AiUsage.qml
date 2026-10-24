@@ -27,6 +27,8 @@ Singleton {
     }
 
     readonly property list<Provider> providers: [claude, codex].filter(p => p.enabled)
+    // Providers whose tool is installed; the dock only shows these
+    readonly property list<Provider> shownProviders: providers.filter(p => !p.missing)
     readonly property bool active: DockConfig.enabled && providers.length > 0
 
     // Ticks so relative reset times stay current
@@ -100,7 +102,8 @@ Singleton {
         property bool enabled
 
         property bool loading
-        property bool available
+        // The CLI is not installed, so polling slows down and the tile is hidden
+        property bool missing
         property string plan
         property string error
         property var limits: []
@@ -119,13 +122,16 @@ Singleton {
             stdout: StdioCollector {
                 onStreamFinished: provider.accept(text)
             }
-            onExited: provider.loading = false
+            // exited is not emitted when the process fails to start
+            onRunningChanged: if (!running) provider.loading = false
         }
+
+        onEnabledChanged: if (enabled && root.active) refresh(true)
 
         function refresh(force: bool): void {
             const t = Date.now();
             // Guard against hammering the endpoints when the popup is reopened quickly
-            if (process.running || (!force && t - lastAttemptAt < 30000) || (force && t - lastAttemptAt < 5000))
+            if (process.running || (!force && t - lastAttemptAt < (missing ? 30 * 60000 : 30000)) || (force && t - lastAttemptAt < 5000))
                 return;
             lastAttemptAt = t;
             loading = true;
@@ -141,13 +147,12 @@ Singleton {
                 return;
             }
 
+            missing = data.installed === false;
             if (!data.available) {
                 error = data.error || qsTr("%1 usage is unavailable").arg(name);
-                available = limits.length > 0;
                 return;
             }
 
-            available = true;
             error = "";
             plan = data.plan ?? "";
             limits = data.limits ?? [];

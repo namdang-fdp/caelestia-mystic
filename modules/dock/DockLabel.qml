@@ -11,12 +11,33 @@ StyledRect {
     property DockItem item
 
     readonly property DockItem hoveredItem: dock.hoveredItem
-    readonly property bool active: DockConfig.showLabels && hoveredItem !== null && !dock.menuOpen
+    // Dragging a pin off the dock shows a removal hint instead of the name
+    readonly property bool removing: dock.dragRemoving
+    readonly property bool dragging: dock.dragging
+    property bool showRemove
+    readonly property bool active: removing || (DockConfig.showLabels && hoveredItem !== null && !dock.menuOpen && !dock.previewOpen && !dock.dragging)
 
-    onHoveredItemChanged: if (hoveredItem) item = hoveredItem
+    onHoveredItemChanged: {
+        if (hoveredItem && !dock.dragging) {
+            item = hoveredItem;
+            showRemove = false;
+        }
+    }
+    onDraggingChanged: {
+        if (!dragging && hoveredItem) {
+            item = hoveredItem;
+            showRemove = false;
+        }
+    }
+    onRemovingChanged: {
+        if (removing) {
+            item = dock.dragItem;
+            showRemove = true;
+        }
+    }
 
-    x: item ? item.parent.x + item.x + item.width / 2 - width / 2 : 0
-    y: item ? item.parent.y + item.y + item.height - dock.pad - dock.iconSize * item.zoom - item.bounceY - height - 10 : 0
+    x: item?.parent ? item.parent.x + item.x + item.shiftX + item.dragX + item.width / 2 - width / 2 : 0
+    y: item?.parent ? item.parent.y + item.y + item.height - dock.pad - dock.iconSize * item.zoom - item.bounceY + item.dragY - height - 10 : 0
 
     implicitWidth: text.implicitWidth + Tokens.padding.large * 2
     implicitHeight: text.implicitHeight + Tokens.padding.small * 2
@@ -38,7 +59,7 @@ StyledRect {
         id: text
 
         anchors.centerIn: parent
-        text: root.item?.label ?? ""
+        text: root.showRemove ? qsTr("Remove") : root.item?.label ?? ""
         font: Tokens.font.body.small
     }
 }

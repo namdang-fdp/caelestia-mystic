@@ -17,6 +17,8 @@ PopupWindow {
 
     readonly property string key: target?.modelData ?? ""
     readonly property bool pinned: DockConfig.pinnedApps.includes(key)
+    readonly property bool targetLeaving: !!target && !!dock.leaving[key]
+    readonly property list<DesktopAction> actions: target?.entry?.actions ?? []
 
     function close(): void {
         visible = false;
@@ -38,6 +40,8 @@ PopupWindow {
     contentItem.Tokens.screen: dock.screen.name
     visible: false
 
+    onTargetChanged: if (!target) close()
+    onTargetLeavingChanged: if (targetLeaving) close()
     onVisibleChanged: {
         if (visible) {
             bg.opacity = 0;
@@ -95,7 +99,7 @@ PopupWindow {
                     required property HyprlandToplevel modelData
 
                     text: modelData.title || root.target?.label || ""
-                    icon: modelData === Hyprland.activeToplevel ? "check" : ""
+                    icon: modelData === Hypr.activeToplevel ? "check" : ""
                     onTriggered: Dock.focus(modelData)
                 }
             }
@@ -107,6 +111,32 @@ PopupWindow {
                 Layout.leftMargin: Tokens.padding.medium
                 Layout.rightMargin: Tokens.padding.medium
                 visible: (root.target?.running ?? false)
+                implicitHeight: 1
+                color: Qt.alpha(Colours.palette.m3outlineVariant, 0.6)
+            }
+
+            // Desktop actions, e.g. "New Private Window"
+            Repeater {
+                model: root.visible ? root.actions : []
+
+                MenuRow {
+                    required property DesktopAction modelData
+
+                    text: modelData.name
+                    onTriggered: {
+                        if (Dock.runAction(root.key, modelData) && !root.target.running)
+                            root.target.launching = true;
+                    }
+                }
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.topMargin: Tokens.padding.extraSmall
+                Layout.bottomMargin: Tokens.padding.extraSmall
+                Layout.leftMargin: Tokens.padding.medium
+                Layout.rightMargin: Tokens.padding.medium
+                visible: root.actions.length > 0
                 implicitHeight: 1
                 color: Qt.alpha(Colours.palette.m3outlineVariant, 0.6)
             }
@@ -129,7 +159,7 @@ PopupWindow {
             MenuRow {
                 visible: root.target?.running ?? false
                 text: (root.target?.windows.length ?? 0) > 1 ? qsTr("Quit %1 windows").arg(root.target.windows.length) : qsTr("Quit")
-                onTriggered: Dock.closeAll(root.key)
+                onTriggered: Dock.closeWindows(root.target.windows)
             }
         }
     }
