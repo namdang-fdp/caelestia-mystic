@@ -12,7 +12,10 @@ import qs.services
 Item {
     id: root
     required property ScreenState screenState
+    signal pageRequested(string page)
     readonly property date selectedMonth: screenState.dashboardDate
+    property date selectedDay: new Date()
+    readonly property bool selectedIsToday: CalendarNotes.key(selectedDay) === CalendarNotes.key(new Date())
     readonly property string memorySummary: {
         const fmt = UsageFmt.formatKib(Memory.used, Memory.total);
         return `${+fmt.value.toFixed(1)} / ${+fmt.total.toFixed(1)} ${fmt.unit}`;
@@ -22,7 +25,26 @@ Item {
         const fmt = UsageFmt.formatKib(Storage.primaryDisk.used, Storage.primaryDisk.total);
         return `${+fmt.value.toFixed(1)} / ${+fmt.total.toFixed(1)} ${fmt.unit}`;
     }
-    implicitHeight: 278 + powerProfiles.implicitHeight + 12 + (IslandHealth.warning ? 60 : 0)
+    implicitHeight: 330 + powerProfiles.implicitHeight + 12 + (IslandHealth.warning ? 60 : 0)
+
+    function loadNote(): void {
+        noteField.text = CalendarNotes.noteFor(selectedDay);
+    }
+    function commitNote(): void {
+        CalendarNotes.setNote(selectedDay, noteField.text);
+    }
+    function selectDay(day: date): void {
+        commitNote();
+        selectedDay = day;
+        loadNote();
+    }
+
+    Component.onCompleted: { Weather.reload(); loadNote(); }
+    Component.onDestruction: commitNote()
+    Connections {
+        target: CalendarNotes
+        function onNotesChanged(): void { if (!noteField.activeFocus) root.loadNote(); }
+    }
 
     function changeMonth(offset: int): void {
         screenState.dashboardDate = new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() + offset, 1);
@@ -94,13 +116,31 @@ Item {
                 delegate: Item {
                     id: day
                     required property var model
+                    // Built from the local y/m/d so QDate -> JS Date timezone shifts cannot move the day.
+                    readonly property date localDate: new Date(model.year, model.month, model.day)
+                    readonly property string key: CalendarNotes.key(localDate)
+                    readonly property bool selected: key === CalendarNotes.key(root.selectedDay)
+                    readonly property bool hasNote: !!CalendarNotes.notes[key]
+                    Accessible.role: Accessible.Button
+                    Accessible.name: localDate.toLocaleDateString(Qt.locale(), Locale.LongFormat) + (hasNote ? qsTr(", has a note") : "")
+                    MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.selectDay(day.localDate) }
                     Rectangle {
                         anchors.centerIn: parent
                         width: Math.min(parent.width, parent.height) - 2
                         height: width
                         radius: height / 2
-                        visible: day.model.today
-                        color: IslandTheme.palette.m3primary
+                        visible: day.model.today || day.selected
+                        color: day.model.today ? IslandTheme.palette.m3primary : "transparent"
+                        border.width: day.selected && !day.model.today ? 1 : 0
+                        border.color: IslandTheme.palette.m3outline
+                    }
+                    Rectangle {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        anchors.bottom: parent.bottom
+                        anchors.bottomMargin: 2
+                        width: 4; height: 4; radius: 2
+                        visible: day.hasNote
+                        color: day.model.today ? IslandTheme.palette.m3onSurfaceVariant : IslandTheme.palette.m3tertiary
                     }
                     IslandText {
                         anchors.centerIn: parent
@@ -109,6 +149,33 @@ Item {
                         opacity: day.model.month === calendar.month ? 1 : 0.35
                         color: day.model.today ? IslandTheme.palette.m3onPrimary : IslandTheme.palette.m3onSurface
                     }
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+                IslandText {
+                    Layout.preferredWidth: 52
+                    text: root.selectedIsToday ? qsTr("Today") : root.selectedDay.toLocaleDateString(Qt.locale(), "MMM d")
+                    islandFont: Tokens.font.label.medium
+                    color: IslandTheme.palette.m3onSurfaceVariant
+                    elide: Text.ElideRight
+                }
+                IslandTextField {
+                    id: noteField
+                    Layout.fillWidth: true
+                    maximumLength: CalendarNotes.maximumLength
+                    placeholderText: qsTr("Add a note…")
+                    Accessible.name: qsTr("Note for %1").arg(root.selectedDay.toLocaleDateString(Qt.locale(), Locale.LongFormat))
+                    onEditingFinished: root.commitNote()
+                    Keys.onEscapePressed: { root.loadNote(); focus = false; }
+                }
+                IslandButton {
+                    visible: noteField.text.length > 0
+                    iconName: "delete"
+                    Accessible.name: qsTr("Delete note")
+                    onClicked: { noteField.text = ""; root.commitNote(); }
                 }
             }
         }
@@ -123,6 +190,27 @@ Item {
             Layout.preferredWidth: 180
             Layout.fillHeight: true
             spacing: 12
+
+            IslandButton {
+                id: weatherGlance
+                Layout.fillWidth: true
+                implicitHeight: 40
+                Accessible.name: Weather.cc ? qsTr("Weather: %1, %2. Open forecast").arg(Weather.temp).arg(Weather.description) : qsTr("Open weather")
+                onClicked: root.pageRequested("weather")
+                background: Rectangle {
+                    radius: 14
+                    color: weatherGlance.hovered ? IslandTheme.palette.cardHover : IslandTheme.palette.card
+                    border.width: weatherGlance.activeFocus ? 2 : 0
+                    border.color: IslandTheme.palette.focus
+                }
+                contentItem: RowLayout {
+                    spacing: 8
+                    MaterialIcon { text: Weather.icon; color: IslandTheme.palette.m3tertiary; fontStyle: Tokens.font.icon.small }
+                    IslandText { text: Weather.cc ? Weather.temp : "--"; islandFont: Tokens.font.label.large }
+                    IslandText { Layout.fillWidth: true; text: Weather.cc ? Weather.description : qsTr("Weather"); islandFont: Tokens.font.label.small; color: IslandTheme.palette.m3onSurfaceVariant; elide: Text.ElideRight }
+                    MaterialIcon { text: "chevron_right"; color: IslandTheme.palette.m3outline; fontStyle: Tokens.font.icon.small }
+                }
+            }
 
             Metric {
                 iconName: "memory"

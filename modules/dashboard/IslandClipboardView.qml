@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import QtQuick.Layouts
+import Quickshell.Widgets
 import Caelestia.Config
 import qs.components
 import qs.components.controls
@@ -13,6 +14,11 @@ FocusScope {
     property bool copying
     readonly property var entries: IslandClipboard.entries.filter(e => e.label.toLowerCase().includes(search.text.toLowerCase()))
     implicitHeight: 304
+    // cliphist describes images as "[[ binary data 302 KiB png 1166x770 ]]".
+    function describe(entry: var): string {
+        const match = entry.image ? /binary data\s+(.+?)\s+(\w+)\s+(\d+)x(\d+)/i.exec(entry.label) : null;
+        return match ? qsTr("%1 image · %2×%3 · %4").arg(match[2].toUpperCase()).arg(match[3]).arg(match[4]).arg(match[1]) : entry.label;
+    }
     function copyCurrent(): void {
         const entry = entries[list.currentIndex];
         if (entry && !IslandClipboard.busy) { copying = true; IslandClipboard.act("copy", entry.id); }
@@ -52,8 +58,10 @@ FocusScope {
                 id: entryRow
                 required property var modelData
                 required property int index
+                readonly property string thumb: modelData.image ? IslandClipboard.thumbs[modelData.id] ?? "" : ""
                 width: list.width
-                height: 54
+                height: modelData.image ? 76 : 54
+                Component.onCompleted: if (modelData.image) IslandClipboard.requestThumb(modelData.id)
                 radius: 14
                 color: list.currentIndex === index ? IslandTheme.palette.m3surfaceContainerHighest : IslandTheme.palette.m3surfaceContainerHigh
                 border.width: list.currentIndex === index ? 1 : 0
@@ -64,10 +72,28 @@ FocusScope {
                     anchors.leftMargin: 12
                     anchors.rightMargin: 6
                     spacing: 12
-                    MaterialIcon { text: entryRow.modelData.image ? "image" : "content_copy"; color: IslandTheme.palette.m3primary; fontStyle: Tokens.font.icon.medium }
+                    MaterialIcon { visible: !entryRow.modelData.image; text: "content_copy"; color: IslandTheme.palette.m3primary; fontStyle: Tokens.font.icon.medium }
+                    ClippingRectangle {
+                        visible: entryRow.modelData.image
+                        Layout.preferredWidth: 96
+                        Layout.preferredHeight: 60
+                        radius: 10
+                        color: IslandTheme.palette.m3surfaceContainerLow
+                        MaterialIcon { anchors.centerIn: parent; visible: thumbnail.status !== Image.Ready; text: "image"; color: IslandTheme.palette.m3outline; fontStyle: Tokens.font.icon.medium }
+                        Image {
+                            id: thumbnail
+                            anchors.fill: parent
+                            source: entryRow.thumb ? "file://" + entryRow.thumb.split("/").map(encodeURIComponent).join("/") : ""
+                            sourceSize: Qt.size(192, 120)
+                            fillMode: Image.PreserveAspectCrop
+                            asynchronous: true
+                            opacity: status === Image.Ready ? 1 : 0
+                            Behavior on opacity { NumberAnimation { duration: 160 * Tokens.anim.durations.scale } }
+                        }
+                    }
                     IslandText {
                         Layout.fillWidth: true
-                        text: entryRow.modelData.label
+                        text: root.describe(entryRow.modelData)
                         maximumLineCount: 2
                         wrapMode: Text.Wrap
                         elide: Text.ElideRight
