@@ -242,7 +242,7 @@ Item {
                     Layout.fillWidth: true
                     text: battery.charging ? qsTr("Charging") : battery.plugged ? qsTr("Plugged in") : qsTr("On battery")
                     islandFont: Tokens.font.label.small
-                    color: battery.plugged ? battery.chargingColour : IslandTheme.palette.m3onSurfaceVariant
+                    color: battery.charging ? IslandTheme.palette.success : IslandTheme.palette.m3onSurfaceVariant
                     wrapMode: Text.WordWrap
                 }
             }

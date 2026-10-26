@@ -29,14 +29,6 @@ Item {
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.bottom
     }
-    RectangularShadow {
-        anchors.fill: dashboard
-        radius: dashboard.surfaceRadius
-        blur: dashboard.expanded || dashboard.previewOpen ? 28 : 10
-        offset.y: dashboard.expanded || dashboard.previewOpen ? 8 : 2
-        color: "#80000000"
-        visible: dashboard.visible
-    }
     Dashboard.Wrapper {
         id: dashboard
         screenState: root.screenState

@@ -8,12 +8,17 @@ My Quickshell rice for Hyprland, built on top of the [caelestia](https://github.
 
 ## Highlights
 
-- **Dynamic Island**: compact pill that morphs into media (live audio visualiser, synced lyrics), controls, info, clipboard, weather, timer, windows and power pages
+- **Dynamic Island**: a pure black notch hanging from the top edge (concave corners, spring morphs), styled after iOS and [Nusa](https://rama2555.github.io/nusa)
+  - Resting notch shows the clock beside a small idle companion: soft round eyes that blink, glance, smile when you hover and doze off while you are away
+  - Hover peeks at what is happening now: music, a running timer, the file shelf, or the time, date and battery
+  - Click opens a carousel with page dots: Controls, Media, Timer, Shelf, Clipboard, Windows, More; turn pages with a two-finger swipe, A/D, ←/→ or the dots
+  - File shelf: drop files on the notch to keep them handy, drag them back out into any app, click to open; it only keeps links, never copies
   - OSD with level bars for volume, brightness and charging; transient pills for Bluetooth devices, workspaces and track changes
-  - Scroll over the pill to change volume, scroll sideways (or Shift+scroll) to switch between clock, lyrics and system stats
-  - Countdown and Pomodoro timer that lives in the pill
+  - Scroll over the notch to change volume, scroll sideways to switch between clock, lyrics and system stats
+  - Countdown and Pomodoro timer that lives in the notch
   - Calendar notes, weather forecast, clipboard image previews and night light (hyprsunset/gammastep)
   - Wi-Fi and Bluetooth pages: inline password entry, known/nearby networks, pairing, device battery, forget
+  - Power page with keyboard shortcuts: S shutdown, R restart, L logout, H hibernate, Enter confirms
 - **Notification centre**: popups (click to open the app, images, urgent styling) and grouped history inside the island
 - **macOS-style dock**: pinned and running apps, drag to reorder, window previews, badges, plus Claude and Codex plan usage tiles
 - **Lock screen**: clean island-style lock with blurred wallpaper, now playing, fingerprint hints and private notification count
@@ -34,8 +39,15 @@ qs -c caelestia
 ## IPC
 
 ```sh
-qs -c caelestia ipc call dynamicIsland open wifi        # controls, media, wifi, bluetooth, timer, weather, clipboard, ...
+qs -c caelestia ipc call dynamicIsland open wifi        # controls, media, wifi, bluetooth, timer, weather, clipboard, shelf, ...
+qs -c caelestia ipc call islandShelf add ~/file.pdf     # also: remove, clear, list
 qs -c caelestia ipc call islandTimer start 25           # minutes; also: pomodoro, toggle, stop, status
 qs -c caelestia ipc call monitorProfiles lid
+```
+
+Global shortcuts are exposed to Hyprland as `caelestia:<name>`. For example, to open the island power page with Super+Escape (Lua config):
+
+```lua
+hl.bind("SUPER + Escape", hl.dsp.global("caelestia:session"))
 ```
 

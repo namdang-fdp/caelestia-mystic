@@ -10,28 +10,29 @@ Rectangle {
     readonly property bool charging: UPower.displayDevice.state === UPowerDeviceState.Charging
     readonly property bool plugged: !UPower.onBattery
     readonly property int percentage: Math.round(UPower.displayDevice.percentage * 100)
-    readonly property color chargingColour: IslandTheme.palette.successSoft
-    readonly property color middleColour: IslandTheme.palette.warning
-    readonly property color statusColour: plugged ? chargingColour : percentage >= 60 ? chargingColour : percentage >= 25 ? middleColour : IslandTheme.palette.m3error
     visible: UPower.displayDevice.isLaptopBattery
-    implicitWidth: contents.implicitWidth + 16
+    implicitWidth: contents.implicitWidth
     implicitHeight: 28
     radius: height / 2
-    color: Qt.alpha(statusColour, 0.13)
+    color: "transparent"
     Accessible.name: qsTr("Battery %1 percent, %2").arg(percentage).arg(charging ? qsTr("charging") : plugged ? qsTr("plugged in") : qsTr("on battery"))
     Row {
         id: contents
         anchors.centerIn: parent
-        spacing: 4
-        MaterialIcon {
-            text: root.plugged ? root.charging ? "bolt" : "power" : Icons.getBatteryIcon(UPower.displayDevice.percentage)
-            color: root.statusColour
-            fontStyle: Tokens.font.icon.small
-        }
+        spacing: 6
         IslandText {
+            anchors.verticalCenter: parent.verticalCenter
             text: `${root.percentage}%`
-            color: root.statusColour
-            islandFont: Tokens.font.label.medium
+            color: !root.plugged && root.percentage < 20 ? IslandTheme.palette.m3error : IslandTheme.palette.m3onSurface
+            font.pixelSize: 13
+            font.weight: Font.DemiBold
+            font.features: { "tnum": 1 }
+        }
+        IslandBatteryGlyph {
+            anchors.verticalCenter: parent.verticalCenter
+            level: UPower.displayDevice.percentage
+            charging: root.charging
+            plugged: root.plugged
         }
     }
 }

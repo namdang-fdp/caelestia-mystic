@@ -17,9 +17,10 @@ Scope {
 
     ExclusionZone {
         anchors.top: true
-        // Reserve only the resting capsule. Expanded views overlay the desktop
-        // without repeatedly resizing tiled windows during the morph.
-        exclusiveZone: contentItem.Config.dashboard.enabled && !root.fullscreen ? 48 : 0
+        // Reserve only the resting notch (36px, flush with the top edge), so
+        // the gap below it matches Hyprland's window gaps. Expanded views
+        // overlay the desktop without resizing tiled windows during the morph.
+        exclusiveZone: contentItem.Config.dashboard.enabled && !root.fullscreen ? 36 : 0
     }
 
     ExclusionZone {

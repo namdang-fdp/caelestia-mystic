@@ -32,6 +32,18 @@ FocusScope {
         closeRequested();
     }
 
+    // Keyboard path for Super+Esc: S/R/L/H picks an action, Enter confirms.
+    Component.onCompleted: Qt.callLater(root.forceActiveFocus)
+    Keys.onPressed: event => {
+        const keys = { [Qt.Key_L]: 0, [Qt.Key_S]: 1, [Qt.Key_H]: 2, [Qt.Key_R]: 3 };
+        if (event.key in keys && !executing && actions[keys[event.key]].command.length > 0) {
+            pendingAction = keys[event.key];
+            event.accepted = true;
+        } else if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter) && pendingAction >= 0) {
+            confirm();
+            event.accepted = true;
+        }
+    }
     Keys.onEscapePressed: event => {
         if (pendingAction >= 0) pendingAction = -1;
         else closeRequested();
@@ -76,7 +88,7 @@ FocusScope {
                 IslandText { text: qsTr("Session & power"); islandFont: Tokens.font.title.medium }
                 IslandText {
                     Layout.fillWidth: true
-                    text: qsTr("Choose an action, then confirm.")
+                    text: qsTr("Press S, R, L or H, then Enter.")
                     color: IslandTheme.palette.m3onSurfaceVariant
                     islandFont: Tokens.font.body.small
                     wrapMode: Text.WordWrap
@@ -111,7 +123,7 @@ FocusScope {
             spacing: 4
             IslandText {
                 Layout.fillWidth: true
-                text: root.pendingAction >= 0 ? qsTr("%1 this session?").arg(root.actions[root.pendingAction].label) : qsTr("GIF and playback speed can be changed in Settings.")
+                text: root.pendingAction >= 0 ? qsTr("%1 this session? Press Enter to confirm.").arg(root.actions[root.pendingAction].label) : ""
                 color: root.pendingAction >= 0 ? IslandTheme.palette.m3onSurface : IslandTheme.palette.m3onSurfaceVariant
                 islandFont: Tokens.font.label.medium
                 wrapMode: Text.WordWrap

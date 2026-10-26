@@ -65,3 +65,40 @@ test('bluetooth icons map common device classes and fall back safely',()=>{
  assert.equal(logic.bluetoothIcon('phone'),'smartphone');
  assert.equal(logic.bluetoothIcon(undefined),'bluetooth');
 });
+test('byte sizes read like Finder: one decimal under 10, none above',()=>{
+ assert.equal(logic.formatBytes(0),'0 B');
+ assert.equal(logic.formatBytes(812),'812 B');
+ assert.equal(logic.formatBytes(2516582),'2.4 MB');
+ assert.equal(logic.formatBytes(15*1024*1024),'15 MB');
+ assert.equal(logic.formatBytes(-5),'');
+ assert.equal(logic.formatBytes(NaN),'');
+});
+test('file kind is the upper-case extension, folders and dotfiles handled',()=>{
+ assert.equal(logic.fileKind('beach.jpg',false),'JPG');
+ assert.equal(logic.fileKind('archive.tar.gz',false),'GZ');
+ assert.equal(logic.fileKind('Downloads',true),'Folder');
+ assert.equal(logic.fileKind('.bashrc',false),'File');
+ assert.equal(logic.fileKind('Makefile',false),'File');
+});
+test('dropped urls keep only decoded local paths',()=>{
+ assert.deepEqual([...logic.localPaths(['file:///home/a/My%20File.png','https://x.y/z','file:///tmp/%E1%BA%A3nh.jpg'])],['/home/a/My File.png','/tmp/ảnh.jpg']);
+ assert.deepEqual([...logic.localPaths(['file:///bad%E0%A4%A'])],[]);
+ assert.deepEqual([...logic.localPaths(null)],[]);
+});
+test('shelf puts new paths first, drops duplicates and caps its length',()=>{
+ const a={path:'/a'},b={path:'/b'},c={path:'/c'};
+ assert.deepEqual([...logic.shelfMerge([a,b],[c,{path:'/a'}],10).map(i=>i.path)],['/c','/a','/b']);
+ assert.deepEqual([...logic.shelfMerge([a,b],[c],2).map(i=>i.path)],['/c','/a']);
+ assert.deepEqual([...logic.shelfMerge(undefined,[a],5).map(i=>i.path)],['/a']);
+});
+test('blinks are irregular but bounded, sometimes doubled',()=>{
+ assert.equal(logic.blinkDelay(0),2600);
+ assert.equal(logic.blinkDelay(.999999)<6200,true);
+ assert.equal(logic.isDoubleBlink(.1),true);
+ assert.equal(logic.isDoubleBlink(.5),false);
+});
+test('glances pick a new direction, never the current one',()=>{
+ for(const r of [0,.3,.6,.99]) assert.notEqual(logic.nextGlance(0,r),0);
+ assert.equal([-1,-.5,0,.5,1].includes(logic.nextGlance(1,.5)),true);
+ assert.notEqual(logic.nextGlance(1,.99),1);
+});

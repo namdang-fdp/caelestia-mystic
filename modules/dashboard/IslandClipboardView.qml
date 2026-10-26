@@ -31,13 +31,11 @@ FocusScope {
         spacing: 10
         RowLayout {
             Layout.fillWidth: true
-            StyledTextField {
+            IslandTextField {
                 id: search
-                font.family: IslandTheme.fontFamily
                 Layout.fillWidth: true
-                placeholderText: qsTr("Search clipboard…")
-                leadingIcon: "search"
-                radius: 18
+                implicitHeight: 36
+                placeholderText: qsTr("Search clipboard")
                 onTextChanged: list.currentIndex = 0
                 Keys.onDownPressed: list.currentIndex = Math.min(root.entries.length - 1, list.currentIndex + 1)
                 Keys.onUpPressed: list.currentIndex = Math.max(0, list.currentIndex - 1)
@@ -64,15 +62,12 @@ FocusScope {
                 Component.onCompleted: if (modelData.image) IslandClipboard.requestThumb(modelData.id)
                 radius: 14
                 color: list.currentIndex === index ? IslandTheme.palette.m3surfaceContainerHighest : IslandTheme.palette.m3surfaceContainerHigh
-                border.width: list.currentIndex === index ? 1 : 0
-                border.color: Qt.alpha(IslandTheme.palette.m3primary, 0.4)
                 MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: { list.currentIndex = entryRow.index; root.copyCurrent(); } }
                 RowLayout {
                     anchors.fill: parent
                     anchors.leftMargin: 12
                     anchors.rightMargin: 6
                     spacing: 12
-                    MaterialIcon { visible: !entryRow.modelData.image; text: "content_copy"; color: IslandTheme.palette.m3primary; fontStyle: Tokens.font.icon.medium }
                     ClippingRectangle {
                         visible: entryRow.modelData.image
                         Layout.preferredWidth: 96
