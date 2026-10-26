@@ -27,6 +27,29 @@ My Quickshell rice for Hyprland, built on top of the [caelestia](https://github.
 - **Dynamic colours**: palette regenerates from the wallpaper
 - **Utilities panel**: keep awake, screen recorder, quick toggles
 
+## Dynamic Island
+
+<p align="center">
+  <img src="assets/showcase/island/island-notch.png" alt="Resting notch with the clock and the idle companion" width="480">
+</p>
+
+| Hover: nothing happening | Hover: files on the shelf |
+|:---:|:---:|
+| <img src="assets/showcase/island/island-hover-glance.png" alt="Glance card with time, date and battery" width="400"> | <img src="assets/showcase/island/island-hover-shelf.png" alt="Shelf peek on hover" width="400"> |
+
+Click the notch for the page carousel (two-finger swipe, A/D, arrow keys or the dots):
+
+| Controls | Timer |
+|:---:|:---:|
+| <img src="assets/showcase/island/island-controls.png" alt="Controls page" width="400"> | <img src="assets/showcase/island/island-timer.png" alt="Timer page" width="400"> |
+| **Shelf** | **More** |
+| <img src="assets/showcase/island/island-shelf.png" alt="File shelf page" width="400"> | <img src="assets/showcase/island/island-more.png" alt="More page" width="400"> |
+
+<p align="center">
+  <img src="assets/showcase/island/island-power.png" alt="Power page, opened with Super+Escape" width="400"><br>
+  <sub>Power page: S shutdown, R restart, L logout, H hibernate, Enter to confirm.</sub>
+</p>
+
 ## Install
 
 Clone into the Quickshell config directory and run it:
