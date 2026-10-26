@@ -13,8 +13,12 @@ Item {
     id: root
     property bool audioVisible
     property bool monitorAudio
-    // "auto" follows the live activity; "lyrics" and "stats" are opt-in resting faces.
+    // The companion animates only on the focused screen.
+    property bool focusedScreen: true
+    // "auto" follows the live activity and shows the companion next to the
+    // clock when nothing is happening; "lyrics" and "stats" are opt-in faces.
     property string restingMode: "auto"
+    readonly property bool companion: activity === "idle" && restingMode === "auto"
     readonly property bool hasMedia: !!Players.active && Players.active.playbackState !== MprisPlaybackState.Stopped
     readonly property bool genericAudio: !hasMedia && sinkLinks.linkGroups.some(g => g.state === PwLinkState.Active)
     readonly property bool hasActivity: hasMedia || genericAudio
@@ -25,8 +29,9 @@ Item {
     readonly property string activity: WindowUx.resizing ? "resize" : IslandHealth.warning ? "health" : Recorder.running ? "recording" : IslandTimer.active && !hasActivity ? "timer" : Audio.sourceMuted ? "muted" : hasActivity ? "media" : restingMode === "stats" ? "stats" : "idle"
     readonly property string activityLabel: activity === "resize" ? "RESIZE · Esc to finish" : activity === "health" ? IslandHealth.label : activity === "recording" ? `${Recorder.paused ? qsTr("Paused") : "REC"} ${Logic.clock(Recorder.elapsed)}` : activity === "timer" ? `${IslandTimer.paused ? qsTr("Paused") : IslandTimer.label} ${IslandTimer.clock}` : activity === "muted" ? qsTr("Microphone muted") : activity === "stats" ? statsLabel : hasMedia ? lyric || Players.active.trackTitle || Players.getIdentity(Players.active) : qsTr("System audio")
     readonly property string statsLabel: [`CPU ${Math.round(Cpu.percentage * 100)}%`, `RAM ${Math.round(Memory.percentage * 100)}%`, ...(Cpu.temperature > 0 ? [`${Math.round(Cpu.temperature)}°C`] : [])].join("  ·  ")
-    implicitWidth: activity === "idle" ? 190 : Math.max(activity === "media" ? 320 : 240, Math.min(lyricsReady ? 460 : 400, row.implicitWidth + 32))
+    implicitWidth: companion ? row.implicitWidth + 36 : activity === "idle" ? 190 : Math.max(activity === "media" ? 320 : 240, Math.min(lyricsReady ? 460 : 400, row.implicitWidth + 32))
     function cycleMode(direction: int): void { restingMode = Logic.nextRestingMode(restingMode, availableModes, direction); }
+    function greet(): void { eyes.greet(); }
     onAvailableModesChanged: if (!availableModes.includes(restingMode)) restingMode = "auto"
     // Only the lyrics face needs the track's lyrics; the media page requests them itself.
     onLyricsTrackChanged: if (restingMode === "lyrics" && hasMedia) Lyrics.setTrack(Players.active.trackArtist, Players.active.trackTitle, Players.active.trackAlbum, Players.active.length)
@@ -45,6 +50,16 @@ Item {
             text: Time.timeStr
             font.pixelSize: 14
             font.weight: Font.DemiBold
+        }
+        IslandEyes {
+            id: eyes
+            anchors.verticalCenter: parent.verticalCenter
+            visible: root.companion
+            width: 40; height: 22
+            running: root.companion && root.audioVisible
+            dozing: IslandIdle.away
+            live: root.focusedScreen
+            motionScale: Tokens.anim.durations.scale
         }
         Rectangle { visible: root.activity !== "idle"; width: 1; height: 14; anchors.verticalCenter: parent.verticalCenter; color: IslandTheme.palette.divider }
         ClippingRectangle {
@@ -68,6 +83,7 @@ Item {
         }
         IslandText {
             id: label
+            visible: !root.companion
             anchors.verticalCenter: parent.verticalCenter
             width: Math.min(root.lyricsReady ? 280 : 200, implicitWidth)
             text: root.activity === "idle" ? Time.format("ddd, MMM d") : root.activityLabel

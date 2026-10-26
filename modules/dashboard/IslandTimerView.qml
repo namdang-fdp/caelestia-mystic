@@ -10,7 +10,6 @@ import qs.services
 // running as a live activity in the compact pill.
 ColumnLayout {
     id: root
-    signal backRequested
     property int customMinutes: 20
     readonly property bool active: IslandTimer.active
     spacing: 14
@@ -18,8 +17,7 @@ ColumnLayout {
     RowLayout {
         Layout.fillWidth: true
         spacing: 8
-        IslandButton { iconName: "chevron_left"; implicitWidth: 30; implicitHeight: 30; leftPadding: 5; rightPadding: 5; Accessible.name: qsTr("Back to Control Center"); onClicked: root.backRequested() }
-        IslandText { Layout.fillWidth: true; text: IslandTimer.pomodoro ? qsTr("Pomodoro") : qsTr("Timer"); font.pixelSize: 16; font.weight: Font.DemiBold }
+        IslandText { Layout.fillWidth: true; text: IslandTimer.pomodoro ? qsTr("Pomodoro") : qsTr("Timer"); font.pixelSize: 15; font.weight: Font.DemiBold }
         Row {
             visible: IslandTimer.pomodoro
             spacing: 5

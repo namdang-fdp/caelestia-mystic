@@ -18,8 +18,8 @@ T.TextField {
     background: Rectangle {
         radius: height / 2
         color: IslandTheme.palette.card
-        border.width: root.activeFocus ? 2 : 1
-        border.color: root.activeFocus ? IslandTheme.palette.focus : IslandTheme.palette.cardBorder
+        border.width: root.activeFocus ? 1.5 : 0
+        border.color: Qt.alpha(IslandTheme.palette.focus, .8)
         Behavior on border.color { ColorAnimation { duration: 120 * Tokens.anim.durations.scale } }
     }
 }

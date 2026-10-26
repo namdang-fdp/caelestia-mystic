@@ -47,12 +47,6 @@ ColumnLayout {
                 Layout.fillWidth: true
                 spacing: 10
                 IslandText { Layout.fillWidth: true; text: root.hasMedia ? root.player.trackTitle || qsTr("Unknown track") : qsTr("Nothing playing"); font.pixelSize: 15; font.weight: Font.DemiBold; elide: Text.ElideRight }
-                IslandButton {
-                    implicitHeight: 22; leftPadding: 2; rightPadding: 2
-                    Accessible.name: qsTr("Info · Super+Shift+I")
-                    onClicked: root.pageRequested("info")
-                    contentItem: IslandText { text: Time.timeStr; font.pixelSize: 13; font.weight: Font.DemiBold; color: IslandTheme.palette.m3onSurfaceVariant }
-                }
             }
             IslandText { Layout.fillWidth: true; text: root.hasMedia ? root.player.trackArtist || Players.getIdentity(root.player) : qsTr("Start music in your player"); color: IslandTheme.palette.m3onSurfaceVariant; elide: Text.ElideRight }
             IslandSpectrum { running: !!root.player?.isPlaying && !Audio.muted && Audio.volume > 0; visible: root.hasMedia }
@@ -83,7 +77,6 @@ ColumnLayout {
     RowLayout {
         Layout.fillWidth: true
         spacing: 12
-        IslandButton { iconName: "tune"; implicitWidth: 28; leftPadding: 4; rightPadding: 4; Accessible.name: qsTr("Control Center · Super+I"); onClicked: root.pageRequested("controls") }
         Item { Layout.fillWidth: true }
         RowLayout {
             spacing: 12
@@ -92,7 +85,6 @@ ColumnLayout {
             IslandButton { iconName: "skip_next"; enabled: !!root.player?.canGoNext; Accessible.name: qsTr("Next track"); onClicked: root.player?.next() }
         }
         Item { Layout.fillWidth: true }
-        IslandButton { iconName: "grid_view"; implicitWidth: 28; leftPadding: 4; rightPadding: 4; Accessible.name: qsTr("Windows · Super+Shift+W"); onClicked: root.pageRequested("workspaces") }
     }
     Timer { interval: 500; repeat: true; running: root.visible && !!root.player?.isPlaying; onTriggered: root.player?.positionChanged() }
 }

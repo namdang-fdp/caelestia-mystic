@@ -5,48 +5,59 @@ import Quickshell
 import Quickshell.Widgets
 import Caelestia.Config
 import qs.components
-import qs.components.controls
 import qs.services
 import qs.utils
-import "helpers/ActivityLogic.js" as Logic
 
+// Last carousel page: microphone, quick toggles, links to the remaining detail
+// pages and background apps. Pages that already have a carousel slot
+// (Windows, Clipboard) or another entry point (Info) are not repeated here.
 ColumnLayout {
     id: root
     required property ShellScreen screen
-    readonly property var monitor: Brightness.getMonitorForScreen(screen)
     signal pageRequested(string page)
     property bool menuOpen
-    readonly property bool dragging: microphone.dragging || nightLightSlider.pressed
-    implicitHeight: 390 + Math.max(0, trayFlow.implicitHeight - 40) + (nightLightRow.visible ? 46 : 0)
-    spacing: 14
+    readonly property bool dragging: micSlider.pressed || nightLightSlider.pressed
+    spacing: 16
+
+    IslandText { text: qsTr("More"); font.pixelSize: 15; font.weight: Font.DemiBold }
+
+    ColumnLayout {
+        Layout.fillWidth: true
+        spacing: 6
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 8
+            IslandText { text: qsTr("Microphone"); font.pixelSize: 11; color: IslandTheme.palette.m3onSurfaceVariant }
+            IslandButton {
+                implicitHeight: 18; leftPadding: 4; rightPadding: 4
+                enabled: !!Audio.source?.audio
+                Accessible.name: Audio.sourceMuted ? qsTr("Unmute microphone") : qsTr("Mute microphone")
+                onClicked: Audio.source.audio.muted = !Audio.sourceMuted
+                contentItem: IslandText { text: Audio.sourceMuted ? qsTr("Unmute") : qsTr("Mute"); font.pixelSize: 11; color: Audio.sourceMuted ? IslandTheme.palette.m3error : IslandTheme.palette.m3onSurfaceVariant }
+            }
+            Item { Layout.fillWidth: true }
+            IslandText { text: Audio.sourceMuted ? qsTr("Muted") : `${Math.round(Audio.sourceVolume * 100)}%`; font.pixelSize: 11; color: IslandTheme.palette.m3onSurfaceVariant }
+        }
+        IslandSlider {
+            id: micSlider
+            Layout.fillWidth: true
+            label: qsTr("Microphone volume"); iconName: Audio.sourceMuted ? "mic_off" : "mic"
+            value: Audio.sourceVolume; to: GlobalConfig.services.maxVolume
+            enabled: !!Audio.source?.audio
+            onMoved: Audio.setSourceVolume(value)
+        }
+    }
 
     RowLayout {
         Layout.fillWidth: true
-        IslandText { Layout.fillWidth: true; text: qsTr("More controls"); islandFont: Tokens.font.title.medium }
-        IslandButton { iconName: "calendar_month"; text: qsTr("Info"); onClicked: root.pageRequested("info") }
-        IslandButton { iconName: "power_settings_new"; Accessible.name: qsTr("Power menu"); onClicked: root.pageRequested("power") }
-    }
-    Control {
-        id: microphone
-        label: qsTr("Microphone")
-        iconName: Audio.sourceMuted ? "mic_off" : "mic"
-        value: Audio.sourceVolume
-        maximum: GlobalConfig.services.maxVolume
-        enabled: !!Audio.source?.audio
-        onMoved: value => Audio.setSourceVolume(value)
-        onToggleRequested: if (Audio.source?.audio) Audio.source.audio.muted = !Audio.sourceMuted
+        spacing: 10
+        ToggleTile { title: qsTr("Keep Awake"); iconName: "coffee"; checked: IdleInhibitor.enabled; onClicked: IdleInhibitor.enabled = !IdleInhibitor.enabled }
+        ToggleTile { visible: NightLight.available; title: qsTr("Night Light"); iconName: "nightlight"; checked: NightLight.enabled; onClicked: NightLight.toggle() }
+        ToggleTile { visible: VPN.enabled; title: VPN.connecting ? qsTr("Connecting") : qsTr("VPN"); iconName: "vpn_key"; checked: VPN.connected; enabled: !VPN.connecting; onClicked: VPN.toggle() }
     }
     RowLayout {
         Layout.fillWidth: true
-        IslandButton { text: qsTr("Keep Awake"); iconName: "coffee"; checked: IdleInhibitor.enabled; onClicked: IdleInhibitor.enabled = !IdleInhibitor.enabled }
-        IslandButton { text: qsTr("VPN"); iconName: "vpn_key"; checked: VPN.connected; enabled: VPN.enabled && !VPN.connecting; onClicked: VPN.toggle() }
-        IslandButton { visible: NightLight.available; text: qsTr("Night Light"); iconName: "nightlight"; checked: NightLight.enabled; onClicked: NightLight.toggle() }
-    }
-    RowLayout {
-        id: nightLightRow
-        Layout.fillWidth: true
-        Layout.preferredHeight: 32
-        Layout.topMargin: -2
+        Layout.topMargin: -6
         visible: NightLight.available && NightLight.enabled
         spacing: 10
         IslandSlider {
@@ -64,107 +75,120 @@ ColumnLayout {
         }
         IslandText {
             Layout.fillWidth: !!NightLight.error
-            Layout.preferredWidth: 56
+            Layout.preferredWidth: 52
             horizontalAlignment: NightLight.error ? Text.AlignLeft : Text.AlignRight
             text: NightLight.error ? qsTr("Night light: %1").arg(NightLight.error) : `${NightLight.temperature} K`
             color: NightLight.error ? IslandTheme.palette.m3error : IslandTheme.palette.m3onSurfaceVariant
-            islandFont: Tokens.font.label.medium
+            font.pixelSize: 11
             elide: Text.ElideRight
         }
     }
-    Flow {
+
+    // Grouped list, iOS settings style.
+    Rectangle {
         Layout.fillWidth: true
-        spacing: 4
-        IslandButton { text: qsTr("Spaces"); iconName: "grid_view"; onClicked: root.pageRequested("workspaces") }
-        IslandButton { text: qsTr("Clipboard"); iconName: "content_paste"; onClicked: root.pageRequested("clipboard") }
-        IslandButton { text: qsTr("Notifications"); iconName: "notifications"; onClicked: root.pageRequested("notifications") }
-        IslandButton { text: qsTr("Weather"); iconName: "partly_cloudy_day"; onClicked: root.pageRequested("weather") }
+        implicitHeight: links.implicitHeight
+        radius: 16
+        color: IslandTheme.palette.card
+        ColumnLayout {
+            id: links
+            anchors.left: parent.left; anchors.right: parent.right
+            spacing: 0
+            LinkRow { title: qsTr("Notifications"); detail: Notifs.notClosed.length ? Notifs.notClosed.length.toString() : ""; page: "notifications" }
+            Rectangle { Layout.fillWidth: true; Layout.leftMargin: 14; implicitHeight: 1; color: IslandTheme.palette.divider }
+            LinkRow { title: qsTr("Weather"); detail: Weather.cc ? Weather.temp : ""; page: "weather" }
+            Rectangle { Layout.fillWidth: true; Layout.leftMargin: 14; implicitHeight: 1; color: IslandTheme.palette.divider }
+            LinkRow { title: qsTr("Power"); page: "power" }
+        }
     }
-    Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: Qt.alpha(IslandTheme.palette.m3outline, 0.16) }
-    RowLayout {
+
+    ColumnLayout {
         Layout.fillWidth: true
-        IslandText { text: qsTr("Background apps"); islandFont: Tokens.font.label.medium; color: IslandTheme.palette.m3onSurfaceVariant }
-        Item { Layout.fillWidth: true }
-        IslandText { text: IslandTray.items.length; islandFont: Tokens.font.label.small; color: IslandTheme.palette.m3outline }
-    }
-    Flow {
-        id: trayFlow
-        Layout.fillWidth: true
-        Layout.minimumHeight: 40
+        visible: IslandTray.items.length > 0
         spacing: 8
-        Repeater {
-            model: IslandTray.items
-            IslandButton {
-                id: trayButton
-                required property var modelData
-                implicitWidth: 40
-                implicitHeight: 40
-                Accessible.name: modelData.tooltipTitle || modelData.title || modelData.id
-                contentItem: IconImage { source: Icons.getTrayIcon(trayButton.modelData.id, trayButton.modelData.icon); implicitSize: 24 }
-                function showMenu(): void {
-                    if (!modelData.hasMenu) return;
-                    root.menuOpen = true;
-                    nativeMenu.open();
-                }
-                onClicked: modelData.onlyMenu ? showMenu() : modelData.activate()
-                TapHandler { acceptedButtons: Qt.RightButton; onTapped: trayButton.showMenu() }
-                TapHandler { acceptedButtons: Qt.MiddleButton; onTapped: trayButton.modelData.secondaryActivate() }
-                QsMenuAnchor {
-                    id: nativeMenu
-                    anchor.item: trayButton
-                    anchor.edges: Edges.Bottom
-                    anchor.gravity: Edges.Bottom
-                    menu: trayButton.modelData.menu
-                    onClosed: root.menuOpen = false
+        IslandText { text: qsTr("Background apps"); font.pixelSize: 11; color: IslandTheme.palette.m3onSurfaceVariant }
+        Flow {
+            Layout.fillWidth: true
+            spacing: 6
+            Repeater {
+                model: IslandTray.items
+                IslandButton {
+                    id: trayButton
+                    required property var modelData
+                    implicitWidth: 36
+                    implicitHeight: 36
+                    Accessible.name: modelData.tooltipTitle || modelData.title || modelData.id
+                    contentItem: IconImage { source: Icons.getTrayIcon(trayButton.modelData.id, trayButton.modelData.icon); implicitSize: 20 }
+                    function showMenu(): void {
+                        if (!modelData.hasMenu) return;
+                        root.menuOpen = true;
+                        nativeMenu.open();
+                    }
+                    onClicked: modelData.onlyMenu ? showMenu() : modelData.activate()
+                    TapHandler { acceptedButtons: Qt.RightButton; onTapped: trayButton.showMenu() }
+                    TapHandler { acceptedButtons: Qt.MiddleButton; onTapped: trayButton.modelData.secondaryActivate() }
+                    QsMenuAnchor {
+                        id: nativeMenu
+                        anchor.item: trayButton
+                        anchor.edges: Edges.Bottom
+                        anchor.gravity: Edges.Bottom
+                        menu: trayButton.modelData.menu
+                        onClosed: root.menuOpen = false
+                    }
                 }
             }
         }
-        IslandText { visible: !IslandTray.items.length; text: qsTr("No background apps"); color: IslandTheme.palette.m3outline; islandFont: Tokens.font.body.small }
     }
 
-    Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: Qt.alpha(IslandTheme.palette.m3outline, .16) }
-    RowLayout {
+    // Round toggle with its label underneath, like Control Center.
+    component ToggleTile: IslandButton {
+        id: tile
+        required property string title
         Layout.fillWidth: true
-        ColumnLayout {
-            Layout.fillWidth: true
-            spacing: 2
-            IslandText { text: qsTr("Screen recording"); islandFont: Tokens.font.label.large }
-            IslandText { text: Recorder.running ? `${Recorder.paused ? qsTr("Paused") : qsTr("Recording")} · ${Logic.clock(Recorder.elapsed)}` : qsTr("Ready when you are"); color: Recorder.running ? IslandTheme.palette.m3error : IslandTheme.palette.m3onSurfaceVariant }
+        Layout.preferredWidth: 1
+        implicitHeight: 72
+        Accessible.name: qsTr("%1, %2").arg(title).arg(checked ? qsTr("on") : qsTr("off"))
+        background: Rectangle {
+            radius: 18
+            color: tile.hovered || tile.down ? IslandTheme.palette.cardHover : IslandTheme.palette.card
+            border.width: tile.activeFocus ? 2 : 0
+            border.color: IslandTheme.palette.focus
+            Behavior on color { ColorAnimation { duration: 140 * Tokens.anim.durations.scale } }
         }
-        IslandButton { visible: Recorder.running; enabled: !Recorder.busy; text: Recorder.paused ? qsTr("Resume") : qsTr("Pause"); iconName: Recorder.paused ? "play_arrow" : "pause"; onClicked: Recorder.togglePause() }
-        IslandButton { visible: Recorder.running; enabled: !Recorder.busy; text: qsTr("Stop & save"); iconName: "stop"; onClicked: Recorder.stop() }
-        IslandButton { visible: !Recorder.running; enabled: !Recorder.busy; text: qsTr("Record screen"); iconName: "screen_record"; onClicked: Recorder.start() }
+        contentItem: ColumnLayout {
+            spacing: 6
+            Rectangle {
+                Layout.alignment: Qt.AlignHCenter
+                implicitWidth: 34; implicitHeight: 34; radius: 17
+                color: tile.checked ? IslandTheme.palette.accent : IslandTheme.palette.chip
+                scale: tile.down ? .92 : 1
+                Behavior on color { ColorAnimation { duration: 180 * Tokens.anim.durations.scale } }
+                Behavior on scale { NumberAnimation { duration: 120 * Tokens.anim.durations.scale } }
+                MaterialIcon { anchors.centerIn: parent; text: tile.iconName; fill: tile.checked ? 1 : 0; color: IslandTheme.palette.m3onSurface; fontStyle: Tokens.font.icon.small }
+            }
+            IslandText { Layout.alignment: Qt.AlignHCenter; text: tile.title; font.pixelSize: 11; color: tile.checked ? IslandTheme.palette.m3onSurface : IslandTheme.palette.m3onSurfaceVariant }
+        }
     }
-
-    component Control: ColumnLayout {
-        id: control
-        required property string label
-        required property string iconName
-        required property real value
-        property real maximum: 1
-        readonly property bool dragging: slider.dragging
-        signal moved(real value)
-        signal toggleRequested
+    component LinkRow: IslandButton {
+        id: link
+        required property string title
+        required property string page
+        property string detail
         Layout.fillWidth: true
-        spacing: 4
-        RowLayout {
-            Layout.fillWidth: true
-            IslandButton { iconName: control.iconName; Accessible.name: control.label; onClicked: control.toggleRequested() }
-            IslandText { Layout.fillWidth: true; text: control.label; islandFont: Tokens.font.label.medium }
-            IslandText { text: `${Math.round(control.value * 100)}%`; islandFont: Tokens.font.label.medium; color: IslandTheme.palette.m3primary }
+        implicitHeight: 44
+        leftPadding: 14; rightPadding: 12
+        Accessible.name: title
+        onClicked: root.pageRequested(page)
+        background: Rectangle {
+            radius: 16
+            color: link.hovered || link.down ? IslandTheme.palette.card : "transparent"
+            Behavior on color { ColorAnimation { duration: 120 * Tokens.anim.durations.scale } }
         }
-        StyledSlider {
-            id: slider
-            Layout.fillWidth: true
-            Layout.preferredHeight: 14
-            fgColour: enabled ? IslandTheme.palette.m3onSurface : IslandTheme.palette.m3outline
-            bgColour: IslandTheme.palette.m3surfaceContainerHighest
-            value: control.value
-            to: control.maximum
-            wheelEnabled: true
-            onInteraction: position => control.moved(position * to)
-            onMoved: control.moved(value)
-            Accessible.name: control.label
+        contentItem: RowLayout {
+            spacing: 8
+            IslandText { Layout.fillWidth: true; text: link.title; font.pixelSize: 13 }
+            IslandText { visible: !!link.detail; text: link.detail; font.pixelSize: 13; color: IslandTheme.palette.m3onSurfaceVariant }
+            IslandText { text: "›"; font.pixelSize: 17; color: IslandTheme.palette.m3outline }
         }
     }
 }

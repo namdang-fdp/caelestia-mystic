@@ -209,7 +209,7 @@ Scope {
             const island = ShellState.componentsForActive()?.panels?.dashboard;
             if (!state || !island || !island.Config.dashboard.enabled)
                 return;
-            island.openPage(["workspaces", "media", "clipboard", "info", "controls", "more", "notifications", "power", "connections", "wifi", "bluetooth", "timer", "weather"].includes(tab) ? tab : "controls");
+            island.openPage(["workspaces", "media", "clipboard", "info", "controls", "more", "notifications", "power", "connections", "wifi", "bluetooth", "timer", "weather", "shelf"].includes(tab) ? tab : "controls");
         }
 
         function detail(section: string): void {

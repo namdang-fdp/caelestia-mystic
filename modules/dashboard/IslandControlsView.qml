@@ -26,7 +26,7 @@ ColumnLayout {
     signal pageRequested(string page)
     signal detailRequested(string section)
     signal closeRequested
-    implicitHeight: 286 + (monitor?.lastError ? 30 : 0)
+    implicitHeight: 234 + (monitor?.lastError ? 30 : 0)
     spacing: 16
     Component.onCompleted: { Nmcli.getWirelessInterfaces(() => {}); monitor?.initBrightness(); }
     RowLayout {
@@ -102,7 +102,7 @@ ColumnLayout {
             Layout.fillWidth: true
             spacing: 8
             IslandText { text: qsTr("Sound"); font.pixelSize: 11; color: IslandTheme.palette.m3onSurfaceVariant }
-            IslandText { Layout.fillWidth: true; text: Audio.sink?.description ?? ""; font.pixelSize: 10; color: IslandTheme.palette.m3outline; elide: Text.ElideRight }
+            IslandText { Layout.fillWidth: true; text: Audio.sink?.description ?? ""; font.pixelSize: 11; color: IslandTheme.palette.m3outline; elide: Text.ElideRight }
             IslandText { text: Audio.muted ? qsTr("Muted") : `${Math.round(Audio.volume * 100)}%`; font.pixelSize: 11; color: IslandTheme.palette.m3onSurfaceVariant }
         }
         IslandSlider {
@@ -114,24 +114,7 @@ ColumnLayout {
             onMoved: Audio.setVolume(value)
         }
     }
-    RowLayout {
-        Layout.fillWidth: true
-        Layout.preferredHeight: 20
-        IslandButton { iconName: "music_note"; implicitWidth: 24; implicitHeight: 22; leftPadding: 3; rightPadding: 3; Accessible.name: qsTr("Open music player"); onClicked: root.pageRequested("media") }
-        IslandButton { iconName: "info"; implicitWidth: 24; implicitHeight: 22; leftPadding: 3; rightPadding: 3; Accessible.name: qsTr("Info · Super+Shift+I"); onClicked: root.pageRequested("info") }
-        IslandButton { iconName: "grid_view"; implicitWidth: 24; implicitHeight: 22; leftPadding: 3; rightPadding: 3; Accessible.name: qsTr("Windows · Super+Shift+W"); onClicked: root.pageRequested("workspaces") }
-        IslandButton { iconName: "timer"; checked: IslandTimer.active; implicitWidth: 24; implicitHeight: 22; leftPadding: 3; rightPadding: 3; Accessible.name: IslandTimer.active ? qsTr("Timer · %1").arg(IslandTimer.clock) : qsTr("Timer"); onClicked: root.pageRequested("timer") }
-        Item { Layout.fillWidth: true }
-        IslandButton {
-            implicitWidth: 48; implicitHeight: 20
-            Accessible.name: qsTr("Close Control Center")
-            onClicked: root.closeRequested()
-            background: Item {}
-            contentItem: Item { Rectangle { anchors.centerIn: parent; width: 32; height: 3; radius: 2; color: IslandTheme.palette.handle } }
-        }
-        Item { Layout.fillWidth: true }
-        IslandButton { iconName: "more_horiz"; implicitWidth: 24; implicitHeight: 22; leftPadding: 3; rightPadding: 3; Accessible.name: qsTr("More controls"); onClicked: root.pageRequested("more") }
-    }
+    // iOS-style tile: the round button toggles, the rest of the tile opens details.
     component ConnectionCard: IslandButton {
         id: card
         required property string title
@@ -140,33 +123,41 @@ ColumnLayout {
         signal toggleRequested
         Layout.fillWidth: true
         Layout.preferredWidth: 1
-        implicitHeight: 84
-        leftPadding: 12; rightPadding: 12; topPadding: 10; bottomPadding: 10
+        implicitHeight: 60
+        leftPadding: 10; rightPadding: 12; topPadding: 10; bottomPadding: 10
         Accessible.name: qsTr("%1 details, %2").arg(title).arg(detail)
-        background: Rectangle { radius: 17; color: card.hovered ? IslandTheme.palette.cardHover : IslandTheme.palette.card; border.width: 1; border.color: card.activeFocus ? IslandTheme.palette.focus : IslandTheme.palette.cardBorder }
-        contentItem: ColumnLayout {
-            spacing: 3
-            Rectangle {
-                implicitWidth: 28; implicitHeight: 28; radius: 10
-                color: card.checked ? IslandTheme.palette.chipActive : IslandTheme.palette.chip
-                MaterialIcon { anchors.centerIn: parent; text: card.iconName; color: card.checked ? IslandTheme.palette.chipActiveText : IslandTheme.palette.m3onSurfaceVariant; fontStyle: Tokens.font.icon.small }
-            }
-            Item { Layout.fillHeight: true }
-            IslandText { text: card.title; font.pixelSize: 13 }
-            IslandText { Layout.fillWidth: true; text: card.detail; font.pixelSize: 11; color: IslandTheme.palette.m3onSurfaceVariant; elide: Text.ElideRight }
+        background: Rectangle {
+            radius: 18
+            color: card.down ? IslandTheme.palette.cardHover : card.hovered ? IslandTheme.palette.cardHover : IslandTheme.palette.card
+            border.width: card.activeFocus ? 2 : 0
+            border.color: IslandTheme.palette.focus
+            Behavior on color { ColorAnimation { duration: 140 * Tokens.anim.durations.scale } }
         }
-        IslandButton {
-            anchors.right: parent.right; anchors.top: parent.top
-            anchors.rightMargin: 10; anchors.topMargin: 10
-            implicitWidth: 30; implicitHeight: 18
-            checked: card.checked; enabled: card.toggleEnabled
-            Accessible.name: qsTr("%1 %2").arg(checked ? qsTr("Turn off") : qsTr("Turn on")).arg(card.title)
-            onClicked: card.toggleRequested()
-            background: Rectangle {
-                radius: 9; color: card.checked ? IslandTheme.palette.success : IslandTheme.palette.switchOff
-                Rectangle { x: card.checked ? 14 : 2; y: 2; width: 14; height: 14; radius: 7; color: "white"; Behavior on x { NumberAnimation { duration: 120 * Tokens.anim.durations.scale } } }
+        contentItem: RowLayout {
+            spacing: 10
+            IslandButton {
+                implicitWidth: 40; implicitHeight: 40
+                leftPadding: 0; rightPadding: 0
+                enabled: card.toggleEnabled
+                Accessible.name: qsTr("%1 %2").arg(card.checked ? qsTr("Turn off") : qsTr("Turn on")).arg(card.title)
+                onClicked: card.toggleRequested()
+                background: Rectangle {
+                    radius: width / 2
+                    color: card.checked ? IslandTheme.palette.accent : IslandTheme.palette.chip
+                    scale: parent.down ? .92 : 1
+                    Behavior on color { ColorAnimation { duration: 180 * Tokens.anim.durations.scale } }
+                    Behavior on scale { NumberAnimation { duration: 120 * Tokens.anim.durations.scale } }
+                }
+                contentItem: Item {
+                    MaterialIcon { anchors.centerIn: parent; text: card.iconName; fill: card.checked ? 1 : 0; color: IslandTheme.palette.m3onSurface; fontStyle: Tokens.font.icon.small }
+                }
             }
-            contentItem: Item {}
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 1
+                IslandText { Layout.fillWidth: true; text: card.title; font.pixelSize: 13; font.weight: Font.DemiBold; elide: Text.ElideRight }
+                IslandText { Layout.fillWidth: true; text: card.detail; font.pixelSize: 11; color: IslandTheme.palette.m3onSurfaceVariant; elide: Text.ElideRight }
+            }
         }
     }
 }
