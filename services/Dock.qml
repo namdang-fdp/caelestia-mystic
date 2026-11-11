@@ -36,6 +36,8 @@ Singleton {
     // Groups windows by desktop entry id so pinned entries and running windows share a key
     function keyFor(toplevel: HyprlandToplevel): string {
         const cls = classOf(toplevel);
+        if (cls.toLowerCase() === "electron" && toplevel?.lastIpcObject.initialTitle === "DSH Tauri")
+            return "deepseek-harness";
         if (!cls)
             return "";
         if (!lookupCache.has(cls))
