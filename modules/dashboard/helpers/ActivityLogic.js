@@ -1,5 +1,26 @@
 .pragma library
 
+// One activity decision drives the compact face, hover preview and click route.
+// Microphone mute is a badge, not a foreground activity.
+function currentActivity(state) {
+    if (state.resizing) return "resize";
+    if (state.warning) return "health";
+    if (state.agent === "waiting") return "agent";
+    if (state.recording) return "recording";
+    if (state.timerActive && !state.hasAudio) return "timer";
+    if (state.agent === "working") return "agent";
+    if (state.hasAudio) return "media";
+    return state.restingMode === "stats" ? "stats" : "idle";
+}
+
+function activityPage(activity, options) {
+    if (options.shelfPeek) return "shelf";
+    const page = { resize: "workspaces", health: "info", agent: "agent", recording: "recording", timer: "timer", stats: "info" }[activity];
+    if (page) return page;
+    if (activity === "media" && options.showMedia) return "media";
+    return options.timerActive ? "timer" : options.shelfCount ? "shelf" : "glance";
+}
+
 function remaining(deadline, now) {
     return Math.max(0, deadline - now);
 }

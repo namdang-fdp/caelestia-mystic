@@ -10,6 +10,7 @@ import Quickshell.Services.Notifications
 import Caelestia.Config
 import qs.components
 import qs.services
+import qs.utils
 
 Item {
     id: root
@@ -54,7 +55,7 @@ Item {
                 width: badge ? 16 : 30; height: width
                 anchors.right: parent.right; anchors.bottom: parent.bottom
                 anchors.rightMargin: badge ? -4 : 1; anchors.bottomMargin: badge ? -4 : 1
-                source: Quickshell.iconPath(root.notification.appIcon, "image-missing")
+                source: Icons.notificationIcon(root.notification.appIcon, "image-missing")
             }
             MaterialIcon { anchors.centerIn: parent; visible: !root.notification.appIcon && !root.notification.image; text: root.critical ? "priority_high" : "notifications"; color: root.critical ? IslandTheme.palette.m3error : IslandTheme.palette.m3primary; fontStyle: Tokens.font.icon.medium }
         }

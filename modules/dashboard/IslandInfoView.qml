@@ -205,7 +205,7 @@ Item {
                 }
                 contentItem: RowLayout {
                     spacing: 8
-                    MaterialIcon { text: Weather.icon; color: IslandTheme.palette.m3tertiary; fontStyle: Tokens.font.icon.small }
+                    MaterialIcon { text: Weather.icon; color: IslandTheme.palette.yellow; fontStyle: Tokens.font.icon.small }
                     IslandText { text: Weather.cc ? Weather.temp : "--"; islandFont: Tokens.font.label.large }
                     IslandText { Layout.fillWidth: true; text: Weather.cc ? Weather.description : qsTr("Weather"); islandFont: Tokens.font.label.small; color: IslandTheme.palette.m3onSurfaceVariant; elide: Text.ElideRight }
                     MaterialIcon { text: "chevron_right"; color: IslandTheme.palette.m3outline; fontStyle: Tokens.font.icon.small }

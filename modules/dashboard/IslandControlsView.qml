@@ -25,8 +25,8 @@ ColumnLayout {
     readonly property bool dragging: displaySlider.pressed || soundSlider.pressed
     signal pageRequested(string page)
     signal detailRequested(string section)
+    signal audioRequested(bool input)
     signal closeRequested
-    implicitHeight: 234 + (monitor?.lastError ? 30 : 0)
     spacing: 16
     Component.onCompleted: { Nmcli.getWirelessInterfaces(() => {}); monitor?.initBrightness(); }
     RowLayout {
@@ -102,7 +102,18 @@ ColumnLayout {
             Layout.fillWidth: true
             spacing: 8
             IslandText { text: qsTr("Sound"); font.pixelSize: 11; color: IslandTheme.palette.m3onSurfaceVariant }
-            IslandText { Layout.fillWidth: true; text: Audio.sink?.description ?? ""; font.pixelSize: 11; color: IslandTheme.palette.m3outline; elide: Text.ElideRight }
+            IslandButton {
+                objectName: "islandOutputPicker"
+                Layout.fillWidth: true
+                implicitHeight: 24; leftPadding: 4; rightPadding: 4
+                Accessible.name: qsTr("Choose audio output, currently %1").arg(Audio.sink?.description || qsTr("No device"))
+                onClicked: root.audioRequested(false)
+                contentItem: RowLayout {
+                    spacing: 4
+                    IslandText { Layout.fillWidth: true; text: Audio.sink?.nickname || Audio.sink?.description || qsTr("Choose output"); font.pixelSize: 11; color: IslandTheme.palette.m3onSurfaceVariant; elide: Text.ElideRight }
+                    IslandText { text: "›"; font.pixelSize: 14; color: IslandTheme.palette.m3outline }
+                }
+            }
             IslandText { text: Audio.muted ? qsTr("Muted") : `${Math.round(Audio.volume * 100)}%`; font.pixelSize: 11; color: IslandTheme.palette.m3onSurfaceVariant }
         }
         IslandSlider {
@@ -113,6 +124,29 @@ ColumnLayout {
             enabled: !!Audio.sink?.audio
             onMoved: Audio.setVolume(value)
         }
+    }
+    IslandButton {
+        objectName: "islandInputPicker"
+        Layout.fillWidth: true
+        implicitHeight: 28; leftPadding: 4; rightPadding: 4
+        Accessible.name: qsTr("Choose microphone, currently %1, %2").arg(Audio.source?.description || qsTr("No device")).arg(Audio.sourceMuted ? qsTr("muted") : qsTr("unmuted"))
+        onClicked: root.audioRequested(true)
+        contentItem: RowLayout {
+            spacing: 8
+            MaterialIcon { text: Audio.sourceMuted ? "mic_off" : "mic"; fontStyle: Tokens.font.icon.small; color: IslandTheme.palette.m3onSurfaceVariant }
+            IslandText { text: qsTr("Microphone"); font.pixelSize: 11; color: IslandTheme.palette.m3onSurfaceVariant }
+            IslandText { Layout.fillWidth: true; text: Audio.source?.nickname || Audio.source?.description || qsTr("Choose input"); font.pixelSize: 11; color: IslandTheme.palette.m3onSurfaceVariant; elide: Text.ElideRight }
+            IslandText { visible: Audio.sourceMuted; text: qsTr("Muted"); font.pixelSize: 11; color: IslandTheme.palette.m3onSurfaceVariant }
+            IslandText { text: "›"; font.pixelSize: 14; color: IslandTheme.palette.m3outline }
+        }
+    }
+    IslandButton {
+        Layout.fillWidth: true
+        visible: Recorder.running
+        text: Recorder.paused ? qsTr("Recording paused") : qsTr("Screen recording")
+        iconName: "fiber_manual_record"
+        implicitHeight: 28
+        onClicked: root.pageRequested("recording")
     }
     // iOS-style tile: the round button toggles, the rest of the tile opens details.
     component ConnectionCard: IslandButton {

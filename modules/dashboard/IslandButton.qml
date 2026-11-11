@@ -9,6 +9,8 @@ T.Button {
     id: root
     property string iconName
     property bool accent
+    property color accentColour: IslandTheme.palette.accent
+    property color accentText: "#ffffff"
     implicitWidth: contentItem.implicitWidth + leftPadding + rightPadding
     implicitHeight: 36
     leftPadding: 12
@@ -21,7 +23,7 @@ T.Button {
     HoverHandler { cursorShape: root.enabled ? Qt.PointingHandCursor : Qt.ArrowCursor }
     background: Rectangle {
         radius: height / 2
-        color: root.accent ? IslandTheme.palette.m3primary : root.checked || root.hovered || root.down ? IslandTheme.palette.m3surfaceContainerHighest : "transparent"
+        color: root.accent ? root.accentColour : root.checked || root.hovered || root.down ? IslandTheme.palette.m3surfaceContainerHighest : "transparent"
         opacity: root.enabled ? 1 : 0.4
         border.width: root.activeFocus ? 2 : 0
         border.color: IslandTheme.palette.m3secondary
@@ -33,14 +35,14 @@ T.Button {
             anchors.verticalCenter: parent.verticalCenter
             visible: !!root.iconName
             text: root.iconName
-            color: root.accent ? IslandTheme.palette.m3onPrimary : root.checked ? IslandTheme.palette.m3onSurface : IslandTheme.palette.m3onSurfaceVariant
+            color: root.accent ? root.accentText : root.checked ? IslandTheme.palette.m3onSurface : IslandTheme.palette.m3onSurfaceVariant
             fontStyle: Tokens.font.icon.small
             opacity: root.enabled ? 1 : 0.4
         }
         IslandText {
             anchors.verticalCenter: parent.verticalCenter
             text: root.text
-            color: root.accent ? IslandTheme.palette.m3onPrimary : root.checked ? IslandTheme.palette.m3onSurface : IslandTheme.palette.m3onSurfaceVariant
+            color: root.accent ? root.accentText : root.checked ? IslandTheme.palette.m3onSurface : IslandTheme.palette.m3onSurfaceVariant
             islandFont: Tokens.font.label.medium
             opacity: root.enabled ? 1 : 0.4
         }

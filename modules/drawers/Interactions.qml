@@ -26,6 +26,24 @@ CustomMouseArea {
         const corner = x >= width - panels.utilities.activationWidth && y >= height - panels.utilities.activationHeight;
         return Config.utilities.enabled && (corner || panels.utilities.visible && inBottomPanel(panels.utilities, x, y, true));
     }
+    function updateUtilitiesHover(): void {
+        if (fullscreen) return;
+        const show = inUtilitiesArea(mouseX, mouseY);
+        if (!show) utilitiesEnterTimer.stop();
+        if (!utilitiesShortcutActive) {
+            if (show) {
+                utilitiesLeaveTimer.stop();
+                if (!screenState.utilities && !utilitiesEnterTimer.running) utilitiesEnterTimer.start();
+            } else if (screenState.utilities && !utilitiesLeaveTimer.running) utilitiesLeaveTimer.start();
+        } else if (show) utilitiesShortcutActive = false;
+    }
+    Timer {
+        id: utilitiesEnterTimer
+        interval: 200
+        onTriggered: {
+            if (!root.fullscreen && root.containsMouse && root.inUtilitiesArea(root.mouseX, root.mouseY)) root.screenState.utilities = true;
+        }
+    }
     Timer {
         id: utilitiesLeaveTimer
         interval: 180
@@ -37,7 +55,13 @@ CustomMouseArea {
     acceptedButtons: fullscreen ? Qt.NoButton : Qt.AllButtons
     hoverEnabled: true
     onPressed: event => dragStart = Qt.point(event.x, event.y)
-    onContainsMouseChanged: if (!containsMouse && !utilitiesShortcutActive) utilitiesLeaveTimer.restart()
+    onEntered: updateUtilitiesHover()
+    onContainsMouseChanged: {
+        if (!containsMouse) {
+            utilitiesEnterTimer.stop();
+            if (!utilitiesShortcutActive) utilitiesLeaveTimer.restart();
+        }
+    }
     onPositionChanged: event => {
         if (fullscreen) return;
         if (Config.launcher.showOnHover) {
@@ -46,12 +70,7 @@ CustomMouseArea {
             if (event.y - dragStart.y < -Config.launcher.dragThreshold) screenState.launcher = true;
             else if (event.y - dragStart.y > Config.launcher.dragThreshold) screenState.launcher = false;
         }
-        const show = inUtilitiesArea(event.x, event.y);
-        if (!utilitiesShortcutActive) {
-            if (show) { utilitiesLeaveTimer.stop(); screenState.utilities = true; }
-            else if (screenState.utilities && !utilitiesLeaveTimer.running) utilitiesLeaveTimer.start();
-        }
-        else if (show) utilitiesShortcutActive = false;
+        updateUtilitiesHover();
     }
     Connections {
         target: root.screenState

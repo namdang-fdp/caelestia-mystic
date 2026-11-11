@@ -67,7 +67,7 @@ ColumnLayout {
         ColumnLayout {
             Layout.alignment: Qt.AlignTop | Qt.AlignRight
             spacing: 2
-            MaterialIcon { Layout.alignment: Qt.AlignRight; text: Weather.icon; color: IslandTheme.palette.m3tertiary; fontStyle: Tokens.font.icon.builders.extraLarge.scale(1.15).build() }
+            MaterialIcon { Layout.alignment: Qt.AlignRight; text: Weather.icon; color: IslandTheme.palette.yellow; fontStyle: Tokens.font.icon.builders.extraLarge.scale(1.15).build() }
             IslandText { Layout.alignment: Qt.AlignRight; text: qsTr("Feels like %1").arg(root.deg(Weather.cc?.feelsLikeC)); islandFont: Tokens.font.label.medium; color: IslandTheme.palette.m3onSurfaceVariant }
             IslandText { Layout.alignment: Qt.AlignRight; visible: !!root.today; text: qsTr("H %1  L %2").arg(root.deg(root.today?.maxTempC)).arg(root.deg(root.today?.minTempC)); islandFont: Tokens.font.label.medium }
             RowLayout {

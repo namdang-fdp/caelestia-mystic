@@ -1,5 +1,9 @@
 # Dynamic Island — Tide-style integration, 2026-10-09
 
+Audio activity now uses `IslandAudio` with native per-stream `PwNodePeakMonitor` on the default output. A stream must exceed 0.0001 peak, but Quickshell reports `cbrt(sample) / volume`, so this only rejects digital silence, not -80 dB. Silence expires after 1.2 seconds. Mute and zero volume clear immediately on the next 100 ms sample, while a stream that disappears (browsers recreate it on every seek) is carried for 1.5 seconds so the island does not blink. Quickshell's peak monitor reads nothing from streams with an unpositioned channel map (Spotify: node channels `Unknown`, capture `FL/FR`), so for those blind streams a playing MPRIS player matched to the stream counts as audible instead. An active PipeWire link or a paused MPRIS session alone does not wake the compact island. Labels prefer media title/name plus application name, falling back to the application when the browser supplies generic metadata. Browser tab titles are available only when exposed by the browser. Playing MPRIS track metadata is matched to audible applications by identity/desktop entry; manually opening Media still allows paused-player controls.
+
+Inspect audible sources with `qs -c caelestia ipc call islandAudio status`. Unit checks: `node --test modules/dashboard/helpers/test_audio.cjs`. Runtime checks used an isolated PulseAudio null sink: silent open stream, tone, silent gap, resumed tone and sink mute, with a named test stream. No sound was sent to physical speakers.
+
 The Island now presents small task-specific views instead of the old Dashboard widget grid. It keeps Caelestia's per-screen drawer integration and shared services. Tide's capsule layout, task separation and coordinated OutQuint morph are the interaction references; Tide's separate C++ backend is not required.
 
 ## Interaction

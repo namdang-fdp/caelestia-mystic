@@ -26,7 +26,7 @@ ColumnLayout {
                 Rectangle {
                     required property int index
                     width: 8; height: 8; radius: 4
-                    color: index < IslandTimer.completed % 4 || IslandTimer.completed > 0 && IslandTimer.completed % 4 === 0 && IslandTimer.phase === "longBreak" ? IslandTheme.palette.m3tertiary : IslandTheme.palette.chip
+                    color: index < IslandTimer.completed % 4 || IslandTimer.completed > 0 && IslandTimer.completed % 4 === 0 && IslandTimer.phase === "longBreak" ? IslandTheme.palette.orange : IslandTheme.palette.chip
                 }
             }
         }
@@ -46,7 +46,7 @@ ColumnLayout {
                 PathAngleArc { centerX: 80; centerY: 80; radiusX: 80 - ring.stroke / 2; radiusY: radiusX; startAngle: 0; sweepAngle: 360 }
             }
             ShapePath {
-                strokeColor: IslandTimer.paused ? IslandTheme.palette.warning : IslandTimer.phase === "focus" || !IslandTimer.pomodoro ? IslandTheme.palette.m3tertiary : IslandTheme.palette.success
+                strokeColor: IslandTimer.paused ? IslandTheme.palette.warning : IslandTimer.phase === "focus" || !IslandTimer.pomodoro ? IslandTheme.palette.orange : IslandTheme.palette.success
                 strokeWidth: ring.stroke; fillColor: "transparent"; capStyle: ShapePath.RoundCap
                 PathAngleArc { centerX: 80; centerY: 80; radiusX: 80 - ring.stroke / 2; radiusY: radiusX; startAngle: -90; sweepAngle: root.active ? 360 * (1 - IslandTimer.progress) : 0 }
             }

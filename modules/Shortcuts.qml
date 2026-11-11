@@ -43,7 +43,7 @@ Scope {
         if (!state || !island || !island.Config.dashboard.enabled)
             return;
         if (state.dashboard && (!page || island.page === page)) island.close();
-        else if (!root.hasFullscreen) island.openPage(page || "controls");
+        else if (!root.hasFullscreen) island.openPage(page || "home");
     }
 
     function islandClose(): void { ShellState.componentsForActive()?.panels?.dashboard?.close(); }
@@ -95,6 +95,23 @@ Scope {
         name: "islandTimer"
         description: "Toggle Island timer"
         onPressed: root.toggleIsland("timer")
+    }
+
+    CustomShortcut {
+        name: "islandAgent"
+        description: "Toggle Island agent page"
+        onPressed: root.toggleIsland("agent")
+    }
+
+    CustomShortcut {
+        name: "islandNotes"
+        description: "Toggle Island notes"
+        onPressed: {
+            const island = ShellState.componentsForActive()?.panels?.dashboard;
+            const state = ShellState.forActive();
+            if (island?.expanded && island.page === "tools" && IslandTools.tab === "notes") state.dashboard = false;
+            else { IslandTools.openTab("notes"); island?.openPage("tools"); }
+        }
     }
 
     CustomShortcut {
@@ -209,7 +226,7 @@ Scope {
             const island = ShellState.componentsForActive()?.panels?.dashboard;
             if (!state || !island || !island.Config.dashboard.enabled)
                 return;
-            island.openPage(["workspaces", "media", "clipboard", "info", "controls", "more", "notifications", "power", "connections", "wifi", "bluetooth", "timer", "weather", "shelf"].includes(tab) ? tab : "controls");
+            island.openPage(["home", "workspaces", "media", "clipboard", "info", "controls", "more", "notifications", "power", "connections", "wifi", "bluetooth", "audio", "recording", "timer", "tools", "agent", "weather", "shelf"].includes(tab) ? tab : "controls");
         }
 
         function detail(section: string): void {

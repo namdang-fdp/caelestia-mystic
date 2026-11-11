@@ -23,57 +23,55 @@ def http_error(code):
 
 
 class CollectTests(unittest.TestCase):
-    def setUp(self):
-        self.tmp = tempfile.TemporaryDirectory()
-        patcher = patch.dict(claude.os.environ, {'XDG_STATE_HOME': self.tmp.name})
-        patcher.start()
-        self.addCleanup(patcher.stop)
-        self.addCleanup(self.tmp.cleanup)
-
     def run_collect(self, credentials, fetch):
         """credentials: list of oauth dicts returned by successive reads (last one repeats)."""
         reads = list(credentials)
         read = lambda: reads.pop(0) if len(reads) > 1 else reads[0]
-        with patch.object(claude, 'read_oauth', side_effect=read), \
-                patch.object(claude, 'run_auth_status') as auth, \
-                patch.object(claude, 'fetch', side_effect=fetch) as fetched:
+        with patch.object(claude, 'read_oauth', side_effect=read) as reader, \
+                patch.object(claude, 'fetch', side_effect=fetch) as fetched, \
+                patch('subprocess.run') as spawned:
             try:
-                return claude.collect(), auth.call_count, fetched.call_count
+                result = claude.collect()
             except claude.UsageError as exc:
-                return str(exc), auth.call_count, fetched.call_count
+                result = str(exc)
+            # Claude must never be started from here: that races Claude Code's own refresh.
+            self.assertEqual(spawned.call_count, 0)
+            return result, reader.call_count, fetched.call_count
 
-    def test_valid_token_does_not_refresh(self):
-        result, auths, fetches = self.run_collect([FRESH('a')], [USAGE])
+    def test_valid_token_is_used_as_is(self):
+        result, reads, fetches = self.run_collect([FRESH('a')], [USAGE])
         self.assertTrue(result['available'])
-        self.assertEqual((auths, fetches), (0, 1))
+        self.assertEqual((reads, fetches), (1, 1))
 
-    def test_expired_token_refreshes_once_then_fetches(self):
-        result, auths, fetches = self.run_collect([STALE('a'), FRESH('b')], [USAGE])
+    def test_expired_token_picks_up_one_refreshed_by_claude_code(self):
+        result, reads, fetches = self.run_collect([STALE('a'), FRESH('b')], [USAGE])
         self.assertTrue(result['available'])
-        self.assertEqual((auths, fetches), (1, 1))
+        self.assertEqual((reads, fetches), (2, 1))
 
-    def test_401_refreshes_at_most_once(self):
-        result, auths, fetches = self.run_collect([FRESH('a'), FRESH('b')], [http_error(401), http_error(401)])
-        self.assertEqual(result, claude.EXPIRED_MESSAGE)
-        self.assertEqual((auths, fetches), (1, 2))
+    def test_expired_token_that_stays_expired_reports_expiry_without_fetching(self):
+        result, reads, fetches = self.run_collect([STALE('a')], [USAGE])
+        self.assertEqual((result, reads, fetches), (claude.EXPIRED_MESSAGE, 2, 0))
 
-    def test_failed_refresh_backs_off_on_next_run(self):
-        result, auths, _ = self.run_collect([STALE('a')], [USAGE])
-        self.assertEqual((result, auths), (claude.EXPIRED_MESSAGE, 1))
-        self.assertTrue(claude.state_file().exists())
-        result, auths, fetches = self.run_collect([STALE('a')], [USAGE])
-        self.assertEqual((result, auths, fetches), (claude.EXPIRED_MESSAGE, 0, 0))
+    def test_credentials_cleared_meanwhile_reports_expiry(self):
+        def read():
+            if read.calls:
+                raise claude.UsageError('Sign in to Claude Code to see usage')
+            read.calls += 1
+            return STALE('a')
+        read.calls = 0
+        with patch.object(claude, 'read_oauth', side_effect=read), patch.object(claude, 'fetch') as fetched:
+            with self.assertRaises(claude.AuthError):
+                claude.collect()
+        self.assertEqual(fetched.call_count, 0)
 
-    def test_backoff_expires(self):
-        self.run_collect([STALE('a')], [USAGE])
-        with patch.object(claude, 'last_refresh_failure', return_value=time.time() - claude.REFRESH_BACKOFF_SECONDS - 1):
-            _, auths, _ = self.run_collect([STALE('a'), FRESH('b')], [USAGE])
-        self.assertEqual(auths, 1)
+    def test_401_rereads_once_and_retries_with_a_new_token(self):
+        result, reads, fetches = self.run_collect([FRESH('a'), FRESH('b')], [http_error(401), USAGE])
+        self.assertTrue(result['available'])
+        self.assertEqual((reads, fetches), (2, 2))
 
-    def test_successful_fetch_clears_backoff(self):
-        self.run_collect([STALE('a')], [USAGE])
-        self.run_collect([FRESH('new')], [USAGE])
-        self.assertFalse(claude.state_file().exists())
+    def test_401_with_an_unchanged_token_is_not_retried(self):
+        result, reads, fetches = self.run_collect([FRESH('a')], [http_error(401), USAGE])
+        self.assertEqual((result, reads, fetches), (claude.EXPIRED_MESSAGE, 2, 1))
 
     def test_retry_errors_keep_their_messages(self):
         cases = [(http_error(500), 'Claude usage request failed (500)'),
@@ -81,13 +79,8 @@ class CollectTests(unittest.TestCase):
                  (ValueError('bad json'), 'Claude returned an invalid usage response')]
         for error, message in cases:
             with self.subTest(message=message):
-                claude.record_refresh_failure(False)
-                result, auths, fetches = self.run_collect([FRESH('a'), FRESH('b')], [http_error(401), error])
-                self.assertEqual((result, auths, fetches), (message, 1, 2))
-
-    def test_unchanged_token_after_refresh_is_not_retried(self):
-        result, auths, fetches = self.run_collect([FRESH('a')], [http_error(401), USAGE])
-        self.assertEqual((result, auths, fetches), (claude.EXPIRED_MESSAGE, 1, 1))
+                result, reads, fetches = self.run_collect([FRESH('a'), FRESH('b')], [http_error(401), error])
+                self.assertEqual((result, reads, fetches), (message, 2, 2))
 
 
 class InstallTests(unittest.TestCase):

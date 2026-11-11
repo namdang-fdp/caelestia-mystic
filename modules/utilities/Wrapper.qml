@@ -12,7 +12,8 @@ Item {
     required property ScreenState screenState
     property matrix4x4 deformMatrix
     readonly property int activationWidth: 96
-    readonly property int activationHeight: 64
+    // A narrow bottom-edge strip, paired with a short hover delay.
+    readonly property int activationHeight: 6
     readonly property bool cornerEnabled: Config.utilities.enabled
 
     readonly property PersistentProperties props: PersistentProperties {
