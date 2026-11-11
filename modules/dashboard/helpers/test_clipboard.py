@@ -14,6 +14,52 @@ spec.loader.exec_module(clipboard)
 
 
 class ClipboardContractTests(unittest.TestCase):
+    def setUp(self):
+        self.state = tempfile.TemporaryDirectory()
+        self.environment = patch.dict(os.environ, {'XDG_STATE_HOME': self.state.name})
+        self.environment.start()
+
+    def tearDown(self):
+        self.environment.stop()
+        self.state.cleanup()
+
+    def test_classification_keeps_prose_text_and_detects_images_links_and_code(self):
+        rows = clipboard.entries(b'1\tHello world\n2\thttps://example.com/x\n3\tconst value = 42;\n4\t[[ binary data 2 KiB png 4x4 ]]\n')
+        self.assertEqual([r['type'] for r in rows], ['text', 'link', 'code', 'image'])
+
+    def test_pinned_binary_survives_history_eviction_and_copies_exact_bytes(self):
+        payload = b'\x89PNG\r\n\x1a\n\x00\xfffixture'
+        with patch.object(clipboard, 'run', side_effect=[b'7\t[[ binary data 1 KiB png 2x2 ]]\n', payload]):
+            clipboard.pin('7')
+        with patch.object(sys, 'argv', ['clipboard.py', 'list']), patch.object(clipboard.shutil, 'which', return_value='/fixture'), patch.object(clipboard, 'run', return_value=b''):
+            saved = clipboard.main()['entries']
+        self.assertEqual(len(saved), 1)
+        self.assertTrue(saved[0]['pinned'])
+        self.assertEqual(saved[0]['type'], 'image')
+        with patch.object(sys, 'argv', ['clipboard.py', 'copy', saved[0]['id']]), patch.object(clipboard.shutil, 'which', return_value='/fixture'), patch.object(clipboard, 'run', return_value=b'') as process:
+            clipboard.main()
+            self.assertEqual(process.call_args.args, (['wl-copy'], payload))
+        with patch.object(clipboard, 'run') as process, tempfile.TemporaryDirectory() as folder:
+            self.assertEqual(clipboard.thumbnail(Path(folder), saved[0]['id']).read_bytes(), payload)
+            process.assert_not_called()
+        clipboard.unpin(saved[0]['id'])
+        self.assertEqual(clipboard.pins(), [])
+
+    def test_pin_is_deduplicated_and_saved_with_private_permissions(self):
+        for _ in range(2):
+            with patch.object(clipboard, 'run', side_effect=[b'9\tfixture\n', b'fixture']):
+                clipboard.pin('9')
+        self.assertEqual(len(clipboard.pins()), 1)
+        for file in clipboard.pins_dir().iterdir():
+            self.assertEqual(file.stat().st_mode & 0o777, 0o600)
+        self.assertEqual(clipboard.pins_dir().stat().st_mode & 0o777, 0o700)
+
+    def test_unpin_rejects_paths_and_never_deletes_history(self):
+        with patch.object(clipboard, 'run') as process:
+            for key in ['../x', '3', 'p../../x']:
+                with self.assertRaises(RuntimeError): clipboard.unpin(key)
+            process.assert_not_called()
+
     def test_list_keeps_ids_and_distinguishes_binary_entries(self):
         rows = clipboard.entries(b'42\ttext with $(literal)\n41\t[[ binary data 12 KiB png 120x80 ]]\nbad row\n')
         self.assertEqual([e['id'] for e in rows], ['42', '41'])
