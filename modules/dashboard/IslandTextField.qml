@@ -15,6 +15,7 @@ T.TextField {
     font.family: IslandTheme.fontFamily
     font.pixelSize: 13
     verticalAlignment: TextInput.AlignVCenter
+    Text { visible: !root.text && !root.activeFocus || !root.text && root.placeholderText.length > 0; x: root.leftPadding; anchors.verticalCenter: parent.verticalCenter; text: root.placeholderText; color: root.placeholderTextColor; font: root.font; elide: Text.ElideRight; width: root.width - root.leftPadding - root.rightPadding }
     background: Rectangle {
         radius: height / 2
         color: IslandTheme.palette.card
