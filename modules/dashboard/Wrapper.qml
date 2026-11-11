@@ -307,6 +307,45 @@ Item {
         }
     }
     Connections {
+        target: IslandLive
+        function onDownloaded(name: string): void { root.feedback("download_done", qsTr("Downloaded"), -1, name, "", 3200); }
+        function onCopied(): void {
+            if (root.monitor === Hypr.focusedMonitor) IslandClipboard.noteCopy("");
+            root.feedback(IslandClipboard.paused ? "pause_circle" : "content_copy", IslandClipboard.paused ? qsTr("Not kept · clipboard paused") : IslandClipboard.stackMode ? qsTr("Added to stack") : qsTr("Copied"), -1, "", "", 1100);
+        }
+        function onCaps(on: bool): void { root.feedback("keyboard_capslock", LiveLogic.capsText(on) === "Caps Lock on" ? qsTr("Caps Lock on") : qsTr("Caps Lock off"), -1, "", "", 1300); }
+        function onNetwork(kind: string): void {
+            if (kind === "online") root.feedback("wifi", qsTr("Back online"), -1, "", "", 2400);
+            else root.feedback("wifi_off", kind === "limited" ? qsTr("No internet access") : qsTr("Offline"), -1, "", "", 3200);
+        }
+    }
+    Connections {
+        target: UPower.displayDevice
+        function onStateChanged(): void {
+            if (UPower.displayDevice.isLaptopBattery && UPower.displayDevice.state === UPowerDeviceState.FullyCharged)
+                root.feedback("battery_full", qsTr("Fully charged"), 1, "100%", "", 2600);
+        }
+    }
+    Connections {
+        target: MusicShow
+        function onDesktopLyricsChanged(): void {
+            root.feedback("lyrics", MusicShow.desktopLyrics ? qsTr("Desktop lyrics on") : qsTr("Desktop lyrics off"), -1, MusicShow.desktopLyrics ? qsTr("Shown at the bottom of the screen while music plays") : "", "", 3200);
+        }
+    }
+    Connections {
+        target: IslandTools
+        function onEyeBreak(): void { root.feedback("visibility", qsTr("Eye break"), -1, qsTr("Look at something far away for 20 seconds"), "", 6000); }
+    }
+    Connections {
+        target: AgentState
+        function onWaiting(session: var): void {
+            root.feedback("front_hand", qsTr("Needs your approval"), -1, `${AgentLogic.agentName(session.agent)}${session.project ? ` · ${session.project}` : ""}`, "", 4500);
+        }
+        function onFinished(session: var): void {
+            root.feedback("task_alt", qsTr("Finished"), -1, `${AgentLogic.agentName(session.agent)}${session.project ? ` · ${session.project}` : ""}`, "", 3000);
+        }
+    }
+    Connections {
         target: IslandTimer
         function onFinished(phase: string, pomodoro: bool): void {
             root.feedback("alarm", !pomodoro ? qsTr("Time's up") : phase === "focus" ? qsTr("Focus done · take a break") : qsTr("Break over · back to focus"), -1, "", "", 3200);

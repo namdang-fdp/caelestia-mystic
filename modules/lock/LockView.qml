@@ -8,6 +8,7 @@ import Quickshell.Widgets
 import Quickshell.Services.Mpris
 import Quickshell.Services.UPower
 import Caelestia.Config
+import Caelestia.Services
 import qs.components
 import qs.services
 import qs.utils
@@ -24,6 +25,13 @@ Item {
     readonly property bool busy: pam.passwd.active || pam.howdy.active
     readonly property var player: Players.active
     readonly property bool hasMedia: !!player && player.playbackState !== MprisPlaybackState.Stopped
+    // The line being sung, highlighted under the title like karaoke.
+    readonly property string lyricLine: hasMedia && Lyrics.hasLyrics ? Lyrics.lyrics[Lyrics.indexForTime(player?.position ?? 0)] ?? "" : ""
+    readonly property var lyricsBinding: {
+        if (hasMedia) Lyrics.setTrack(player.trackArtist, player.trackTitle, player.trackAlbum, player.length);
+        return player;
+    }
+    Timer { interval: 500; repeat: true; running: root.hasMedia && !!root.player?.isPlaying && root.lyricLine !== ""; onTriggered: root.player?.positionChanged() }
     readonly property real s: Math.max(.75, Math.min(1.25, height / 1080))
     property string realName
 
@@ -130,6 +138,7 @@ Item {
                 spacing: 2
                 IslandText { Layout.fillWidth: true; text: root.player?.trackTitle || qsTr("Unknown track"); color: "white"; font.pixelSize: Math.round(15 * root.s); font.weight: Font.DemiBold; elide: Text.ElideRight }
                 IslandText { Layout.fillWidth: true; text: root.player?.trackArtist || Players.getIdentity(root.player); color: "white"; opacity: .7; font.pixelSize: Math.round(13 * root.s); elide: Text.ElideRight }
+                IslandText { visible: root.lyricLine !== ""; Layout.fillWidth: true; text: root.lyricLine; color: IslandTheme.palette.pink; font.pixelSize: Math.round(13 * root.s); font.weight: Font.DemiBold; elide: Text.ElideRight }
             }
             MediaButton { iconName: "skip_previous"; enabled: !!root.player?.canGoPrevious; onClicked: root.player.previous() }
             MediaButton { iconName: root.player?.isPlaying ? "pause" : "play_arrow"; enabled: !!root.player?.canTogglePlaying; onClicked: root.player.togglePlaying() }

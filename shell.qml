@@ -12,6 +12,7 @@ import "modules/background"
 import "modules/areapicker"
 import "modules/lock"
 import "modules/monitorprofiles"
+import "modules/musicshow"
 import QtQuick
 import Quickshell
 import qs.services
@@ -40,6 +41,7 @@ ShellRoot {
         id: lock
     }
 
+    MusicShowWindows {}
     ConfigToasts {}
     Shortcuts {}
     BatteryMonitor {}
