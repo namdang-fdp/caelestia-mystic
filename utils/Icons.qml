@@ -229,6 +229,19 @@ Singleton {
         return name[0].toUpperCase();
     }
 
+    // Notification app icons are a theme name or, from Electron apps such as
+    // Claude, a file:// URL or absolute path. iconPath() only understands theme
+    // names, so a path would come back as the missing-image checkerboard.
+    function notificationIcon(appIcon: string, fallback = ""): string {
+        if (!appIcon)
+            return "";
+        if (appIcon.startsWith("file://") || appIcon.startsWith("image://"))
+            return appIcon;
+        if (appIcon.startsWith("/"))
+            return `file://${appIcon.split("/").map(encodeURIComponent).join("/")}`;
+        return Quickshell.iconPath(appIcon, fallback);
+    }
+
     function getTrayIcon(id: string, icon: string): string {
         for (const sub of GlobalConfig.bar.tray.iconSubs)
             if (sub.id === id)
@@ -237,6 +250,20 @@ Singleton {
         if (icon.includes("?path=")) {
             const [name, path] = icon.split("?path=");
             icon = Qt.resolvedUrl(`${path}/${name.slice(name.lastIndexOf("/") + 1)}`);
+        }
+        // Qt's icon lookup trusts a possibly stale icon-theme.cache, so icons from
+        // recently installed packages can come back as the missing-image checkerboard,
+        // and Papirus lacks a keyboard glyph. Look in other installed themes, then fall back to a plain icon.
+        const prefix = "image://icon/";
+        const raw = String(icon);
+        const name = raw.startsWith(prefix) ? raw.slice(prefix.length).split("?")[0] : raw;
+        if (name && !name.includes("/") && !name.includes(":") && !Quickshell.iconPath(name, true)) {
+            if (name.startsWith("fcitx"))
+                return `file:///usr/share/icons/hicolor/scalable/apps/${name}.svg`;
+            // The active theme has no keyboard glyph (fcitx5 reports input-keyboard-symbolic).
+            if (name.startsWith("input-keyboard"))
+                return "file:///usr/share/icons/breeze-dark/devices/22/input-keyboard-symbolic.svg";
+            return Quickshell.iconPath("application-x-executable");
         }
         return icon;
     }
