@@ -2,10 +2,11 @@
 """Print normalized Claude plan usage as JSON.
 
 Reads the OAuth token written by Claude Code and queries the same endpoint
-its /usage command uses. The token is never printed. When it has expired,
-`claude auth status` is run (at most once per run, with a back-off after a
-failed attempt) so Claude Code refreshes it; this script never writes the
-credentials file itself.
+its /usage command uses. The token is never printed. This script never
+refreshes the token and never runs `claude`: refresh tokens are single use,
+and a second client racing Claude Code for one can leave it signed out. When
+the token has expired it only re-reads the file once, in case Claude Code
+refreshed it meanwhile, and otherwise reports that the session expired.
 """
 
 from __future__ import annotations
@@ -13,7 +14,6 @@ from __future__ import annotations
 import json
 import os
 import shutil
-import subprocess
 import time
 import urllib.error
 import urllib.request
@@ -22,7 +22,6 @@ from pathlib import Path
 
 USAGE_URL = "https://api.anthropic.com/api/oauth/usage"
 TIMEOUT_SECONDS = 15
-REFRESH_BACKOFF_SECONDS = 15 * 60
 EXPIRED_MESSAGE = "Claude Code session expired, run claude to sign in again"
 PLAN_NAMES = {"max": "Max", "pro": "Pro", "team": "Team", "enterprise": "Enterprise"}
 
@@ -74,60 +73,24 @@ def find_claude() -> str | None:
     return None
 
 
-def state_file() -> Path:
-    base = os.environ.get("XDG_STATE_HOME") or Path.home() / ".local/state"
-    return Path(base) / "caelestia" / "dock-claude-refresh.json"
-
-
-def last_refresh_failure() -> float:
-    try:
-        value = json.loads(state_file().read_text(encoding="utf-8")).get("failedAt")
-    except (OSError, ValueError, AttributeError):
-        return 0.0
-    return float(value) if isinstance(value, (int, float)) and not isinstance(value, bool) else 0.0
-
-
-def record_refresh_failure(failed: bool) -> None:
-    path = state_file()
-    try:
-        if failed:
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(json.dumps({"failedAt": time.time()}), encoding="utf-8")
-        elif path.exists():
-            path.unlink()
-    except OSError:
-        pass
-
-
-def run_auth_status() -> None:
-    claude = find_claude()
-    if claude is None:
-        return
-    try:
-        subprocess.run([claude, "auth", "status"], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-                       stderr=subprocess.DEVNULL, timeout=30, check=False)
-    except (OSError, subprocess.SubprocessError):
-        pass
-
-
 class Session:
-    """Credentials for one run; refreshes through Claude Code at most once."""
+    """Credentials for one run. Claude Code owns refreshing them."""
 
     def __init__(self) -> None:
         self.oauth = read_oauth()
-        self.refreshed = False
+        self.reloaded = False
 
-    def refresh(self) -> bool:
-        """Returns True when Claude Code produced a different, unexpired token."""
-        if self.refreshed or time.time() - last_refresh_failure() < REFRESH_BACKOFF_SECONDS:
+    def reload(self) -> bool:
+        """Re-reads the credentials once; True when Claude Code left a different, unexpired token."""
+        if self.reloaded:
             return False
-        self.refreshed = True
+        self.reloaded = True
         previous = self.oauth.get("accessToken")
-        run_auth_status()
-        self.oauth = read_oauth()
-        ok = self.oauth.get("accessToken") != previous and not expired(self.oauth)
-        record_refresh_failure(not ok)
-        return ok
+        try:
+            self.oauth = read_oauth()
+        except UsageError:
+            return False
+        return self.oauth.get("accessToken") != previous and not expired(self.oauth)
 
 
 def expired(oauth: dict) -> bool:
@@ -219,18 +182,16 @@ def normalize(data: dict) -> list[dict]:
 
 def collect() -> dict:
     session = Session()
-    if expired(session.oauth) and not session.refresh():
+    if expired(session.oauth) and not session.reload():
         raise AuthError(EXPIRED_MESSAGE)
 
     try:
         data = request_usage(session.oauth["accessToken"])
     except AuthError:
-        if not session.refresh():
+        if not session.reload():
             raise
         data = request_usage(session.oauth["accessToken"])
     oauth = session.oauth
-    if not session.refreshed and last_refresh_failure():
-        record_refresh_failure(False)
 
     limits = normalize(data)
     if not limits:
