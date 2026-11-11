@@ -6,6 +6,7 @@ import Quickshell.Widgets
 import qs.components
 import qs.services
 import "helpers/ActivityLogic.js" as Logic
+import "helpers/AgentLogic.js" as AgentLogic
 
 Item {
     id: root
@@ -21,11 +22,14 @@ Item {
     readonly property bool genericAudio: !hasMedia && IslandAudio.audible
     readonly property bool hasActivity: hasMedia || genericAudio
     readonly property bool lyricsReady: restingMode === "lyrics" && hasMedia && Lyrics.hasLyrics
-    readonly property string lyric: lyricsReady ? Lyrics.lyrics[Lyrics.indexForTime(Players.active?.position ?? 0)] ?? "" : ""
-    readonly property bool timerChip: IslandTimer.active && activity === "media"
+    readonly property string lyric: lyricsReady ? Lyrics.lyrics[Lyrics.indexForTime(player?.position ?? 0)] ?? "" : ""
+    readonly property bool timerChip: IslandTimer.active && (activity === "media" || activity === "agent")
     readonly property var availableModes: ["auto", ...(hasMedia ? ["lyrics"] : []), "stats"]
-    readonly property string activity: WindowUx.resizing ? "resize" : IslandHealth.warning ? "health" : Recorder.running ? "recording" : IslandTimer.active && !hasActivity ? "timer" : Audio.sourceMuted ? "muted" : hasActivity ? "media" : restingMode === "stats" ? "stats" : "idle"
-    readonly property string activityLabel: activity === "resize" ? "RESIZE · Esc to finish" : activity === "health" ? IslandHealth.label : activity === "recording" ? `${Recorder.paused ? qsTr("Paused") : "REC"} ${Logic.clock(Recorder.elapsed)}` : activity === "timer" ? `${IslandTimer.paused ? qsTr("Paused") : IslandTimer.label} ${IslandTimer.clock}` : activity === "muted" ? qsTr("Microphone muted") : activity === "stats" ? statsLabel : hasMedia ? lyric || Players.active.trackTitle || Players.getIdentity(Players.active) : qsTr("System audio")
+    readonly property string activity: Logic.currentActivity({ resizing: WindowUx.resizing, warning: IslandHealth.warning, recording: Recorder.running, timerActive: IslandTimer.active, hasAudio: hasActivity, restingMode, agent: AgentState.foreground })
+    readonly property string activityLabel: activity === "resize" ? "RESIZE · Esc to finish" : activity === "health" ? IslandHealth.label : activity === "recording" ? `${Recorder.paused ? qsTr("Paused") : "REC"} ${Logic.clock(Recorder.elapsed)}` : activity === "agent" ? agentLabel : activity === "timer" ? `${IslandTimer.paused ? qsTr("Paused") : IslandTimer.label} ${IslandTimer.clock}` : activity === "stats" ? statsLabel : hasMedia ? lyric || `${player.trackTitle} · ${Players.getIdentity(player)}` : IslandAudio.label
+    readonly property var agent: AgentState.primary
+    readonly property bool agentWaiting: AgentState.foreground === "waiting"
+    readonly property string agentLabel: agent ? agentWaiting ? qsTr("Needs you") + (agent.project ? ` · ${agent.project}` : "") : `${AgentLogic.agentName(agent.agent)}${agent.project ? ` · ${agent.project}` : ""}` : ""
     readonly property string statsLabel: [`CPU ${Math.round(Cpu.percentage * 100)}%`, `RAM ${Math.round(Memory.percentage * 100)}%`, ...(Cpu.temperature > 0 ? [`${Math.round(Cpu.temperature)}°C`] : [])].join("  ·  ")
     implicitWidth: companion ? row.implicitWidth + 36 : activity === "idle" ? 190 : Math.max(activity === "media" ? 320 : 240, Math.min(lyricsReady ? 460 : 400, row.implicitWidth + 32))
     function cycleMode(direction: int): void { restingMode = Logic.nextRestingMode(restingMode, availableModes, direction); }
@@ -61,8 +65,14 @@ Item {
         ClippingRectangle {
             width: 22; height: 22; radius: 6
             anchors.verticalCenter: parent.verticalCenter
-            visible: root.activity === "media" && !!Players.getArtUrl(Players.active)
-            Image { anchors.fill: parent; source: Players.getArtUrl(Players.active); sourceSize: Qt.size(40, 40); fillMode: Image.PreserveAspectCrop }
+            visible: root.activity === "media" && !!Players.getArtUrl(root.player)
+            Image { anchors.fill: parent; source: Players.getArtUrl(root.player); sourceSize: Qt.size(40, 40); fillMode: Image.PreserveAspectCrop }
+        }
+        IslandAgentMark {
+            anchors.verticalCenter: parent.verticalCenter
+            visible: root.activity === "agent"
+            state: AgentState.foreground || "working"
+            size: 18
         }
         Item {
             visible: root.activity === "timer"
@@ -72,7 +82,7 @@ Item {
         }
         MaterialIcon {
             anchors.verticalCenter: parent.verticalCenter
-            visible: !["idle", "media", "timer"].includes(root.activity)
+            visible: !["idle", "media", "timer", "agent"].includes(root.activity)
             text: root.activity === "resize" ? "open_in_full" : root.activity === "health" ? IslandHealth.icon : root.activity === "recording" ? "fiber_manual_record" : root.activity === "stats" ? "monitoring" : "mic_off"
             color: root.activity === "health" || root.activity === "recording" ? IslandTheme.palette.m3error : IslandTheme.palette.m3onSurfaceVariant
             fontStyle: Tokens.font.icon.small
@@ -86,7 +96,7 @@ Item {
                 - (root.timerChip ? timerBadge.implicitWidth + row.spacing : 0)
                 - (Audio.sourceMuted ? microphoneBadge.implicitWidth + row.spacing : 0)))
             text: root.activity === "idle" ? Time.format("ddd, MMM d") : root.activityLabel
-            color: root.activity === "idle" ? IslandTheme.palette.m3onSurfaceVariant : root.lyric ? IslandTheme.palette.m3tertiary : IslandTheme.palette.m3onSurface
+            color: root.activity === "idle" ? IslandTheme.palette.m3onSurfaceVariant : root.activity === "agent" && root.agentWaiting ? IslandTheme.palette.warning : root.lyric ? IslandTheme.palette.m3tertiary : IslandTheme.palette.m3onSurface
             font.pixelSize: root.activity === "idle" || root.activity === "stats" ? 12 : 14
             font.weight: Font.Medium
             font.features: { "tnum": 1 }
@@ -108,6 +118,13 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             IslandRing { width: 14; height: 14; anchors.verticalCenter: parent.verticalCenter; progress: 1 - IslandTimer.progress; colour: IslandTimer.paused ? IslandTheme.palette.yellow : IslandTheme.palette.orange }
             IslandText { anchors.verticalCenter: parent.verticalCenter; text: IslandTimer.clock; font.pixelSize: 12; font.features: { "tnum": 1 }; color: IslandTheme.palette.m3onSurfaceVariant }
+        }
+        IslandText {
+            visible: root.activity === "agent" && AgentState.busy > 1
+            anchors.verticalCenter: parent.verticalCenter
+            text: `+${AgentState.busy - 1}`
+            font.pixelSize: 12
+            color: IslandTheme.palette.m3onSurfaceVariant
         }
         IslandSpectrum {
             anchors.verticalCenter: parent.verticalCenter

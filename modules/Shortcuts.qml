@@ -98,6 +98,23 @@ Scope {
     }
 
     CustomShortcut {
+        name: "islandAgent"
+        description: "Toggle Island agent page"
+        onPressed: root.toggleIsland("agent")
+    }
+
+    CustomShortcut {
+        name: "islandNotes"
+        description: "Toggle Island notes"
+        onPressed: {
+            const island = ShellState.componentsForActive()?.panels?.dashboard;
+            const state = ShellState.forActive();
+            if (island?.expanded && island.page === "tools" && IslandTools.tab === "notes") state.dashboard = false;
+            else { IslandTools.openTab("notes"); island?.openPage("tools"); }
+        }
+    }
+
+    CustomShortcut {
         name: "islandClipboard"
         description: "Open Island clipboard history"
         onPressed: {

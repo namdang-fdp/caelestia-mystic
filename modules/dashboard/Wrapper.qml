@@ -11,6 +11,7 @@ import Caelestia.Config
 import qs.components
 import qs.services
 import "helpers/ActivityLogic.js" as Logic
+import "helpers/AgentLogic.js" as AgentLogic
 import "helpers/LiveLogic.js" as LiveLogic
 
 Item {
@@ -505,6 +506,10 @@ Item {
             Component { id: workspacePane; IslandWorkspacesView { screen: root.screen; interactiveFocus: root.expanded; layoutTargetWidth: Math.min(root.screen.width - 32, 744) - 40; onCloseRequested: root.close() } }
             Component { id: wifiPane; IslandWifiView { onBackRequested: root.openPage("controls"); onCloseRequested: root.close() } }
             Component { id: bluetoothPane; IslandBluetoothView { onBackRequested: root.openPage("controls"); onCloseRequested: root.close() } }
+            Component { id: audioPane; IslandAudioView { input: root.audioInput } }
+            Component { id: recordingPane; IslandRecordingView {} }
+            Component { id: toolsPane; IslandToolsView {} }
+            Component { id: agentPane; IslandAgentView { maximumHeight: root.screen.height - 120 } }
             Component { id: timerPane; IslandTimerView {} }
             Component { id: weatherPane; IslandWeatherView { onPageRequested: page => root.openPage(page) } }
             Component { id: notificationsPane; IslandNotificationsView { screenState: root.screenState } }
