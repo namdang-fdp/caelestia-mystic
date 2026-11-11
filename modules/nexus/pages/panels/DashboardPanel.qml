@@ -25,20 +25,20 @@ PageBase {
         ToggleRow {
             first: true
             text: qsTr("Enabled")
-            subtext: qsTr("Clock and battery at rest. Super+I opens workspaces, controls and notifications.")
+            subtext: qsTr("Click for the current activity, or Home when idle. Right-click for Controls; middle-click for Windows. Customize cards on Home.")
             checked: Config.dashboard.enabled
             onToggled: GlobalConfig.dashboard.enabled = checked
         }
         ToggleRow {
             text: qsTr("Preview on hover")
-            subtext: qsTr("Show workspace thumbnails on hover without taking keyboard focus.")
+            subtext: qsTr("Preview the current activity, file shelf or clock on hover without taking keyboard focus.")
             checked: Config.dashboard.showOnHover
             onToggled: GlobalConfig.dashboard.showOnHover = checked
         }
         ToggleRow {
             last: true
             text: qsTr("Music view")
-            subtext: qsTr("Compact playback, controls and lyrics. Right-click the capsule or use Super+V for clipboard history.")
+            subtext: qsTr("Playback controls and lyrics. Use Super+V for clipboard history; use the page menu or dots to navigate.")
             checked: Config.dashboard.showMedia
             onToggled: GlobalConfig.dashboard.showMedia = checked
         }

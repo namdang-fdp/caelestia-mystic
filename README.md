@@ -11,12 +11,21 @@ My Quickshell rice for Hyprland, built on top of the [caelestia](https://github.
 - **Dynamic Island**: a pure black notch hanging from the top edge (concave corners, spring morphs), styled after iOS and [Nusa](https://rama2555.github.io/nusa)
   - Resting notch shows the clock beside a small idle companion: soft round eyes that blink, glance, smile when you hover and doze off while you are away
   - Hover peeks at what is happening now: music, a running timer, the file shelf, or the time, date and battery
-  - Click opens a carousel with page dots: Controls, Media, Timer, Shelf, Clipboard, Windows, More; turn pages with a two-finger swipe, A/D, ←/→ or the dots
+  - Click opens a carousel with a floating dot island underneath: Home, Controls, Media, Timer, Agent, Shelf, Clipboard, Windows, More; turn pages with a two-finger swipe, A/D, ←/→ or the dots
+  - Home brings together music, timer, battery/device levels, today's note and a contextual file shelf; Customize saves card visibility and order
+  - Tools page (`dynamicIsland open tools`): notes, to-do, world clocks, box breathing, and a Focus tab with Quiet, Presenting, timed Keep awake, eye breaks and a Liquid Glass option
+  - Clipboard: `@image`/`@link`/`@code`/`@app` search, pause recording, auto-delete after 1 hour / 1 day / 7 days, Copy Stack
+  - Shelf tools: zip, convert to PNG/JPEG/WebP, resize and images to PDF (originals are never changed)
+  - Media: choose extra buttons (±15 s, shuffle, repeat), fullscreen music show (`musicShow toggle`, five themes) and floating desktop lyrics (`musicShow lyrics`)
+  - Pin the island open from the dot island; scroll over the dots to turn pages; drag cards to reorder Home
+  - Agent: live status of Claude Code (hooks) and Codex (read from its logs) on the notch (working, needs you, done), plus a page with sessions, local 5-hour usage estimates and a 7-day chart; install or remove the Claude Code hooks from that page (`dynamicIsland open agent`)
+  - Controls opens an audio device picker with separate Output/Input tabs; microphone mute stays as a small badge while music and other activities remain visible
   - File shelf: drop files on the notch to keep them handy, drag them back out into any app, click to open; it only keeps links, never copies
   - OSD with level bars for volume, brightness and charging; transient pills for Bluetooth devices, workspaces and track changes
   - Scroll over the notch to change volume, scroll sideways to switch between clock, lyrics and system stats
   - Countdown and Pomodoro timer that lives in the notch
   - Calendar notes, weather forecast, clipboard image previews and night light (hyprsunset/gammastep)
+  - Clipboard filters All/Pinned/Text/Images/Links/Code; pinned text and images are saved locally until unpinned, independently of recent cliphist history (up to 40 items, 32 MiB each)
   - Wi-Fi and Bluetooth pages: inline password entry, known/nearby networks, pairing, device battery, forget
   - Power page with keyboard shortcuts: S shutdown, R restart, L logout, H hibernate, Enter confirms
 - **Notification centre**: popups (click to open the app, images, urgent styling) and grouped history inside the island
@@ -63,6 +72,8 @@ qs -c caelestia
 
 ```sh
 qs -c caelestia ipc call dynamicIsland open wifi        # controls, media, wifi, bluetooth, timer, weather, clipboard, shelf, ...
+qs -c caelestia ipc call dynamicIsland open audio       # output and microphone selection
+qs -c caelestia ipc call dynamicIsland open home        # overview and card customization
 qs -c caelestia ipc call islandShelf add ~/file.pdf     # also: remove, clear, list
 qs -c caelestia ipc call islandTimer start 25           # minutes; also: pomodoro, toggle, stop, status
 qs -c caelestia ipc call monitorProfiles lid

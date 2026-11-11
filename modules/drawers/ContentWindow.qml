@@ -92,7 +92,7 @@ StyledWindow {
     HyprlandFocusGrab {
         id: focusGrab
 
-        active: (root.screenState.launcher && root.contentItem.Config.launcher.enabled) || (panels.dashboard.expanded && !panels.dashboard.nativeMenuOpen)
+        active: (root.screenState.launcher && root.contentItem.Config.launcher.enabled) || (panels.dashboard.expanded && !panels.dashboard.nativeMenuOpen && !panels.dashboard.pinned)
         windows: [root]
         onCleared: {
             root.screenState.launcher = false;

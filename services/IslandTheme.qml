@@ -15,9 +15,11 @@ Singleton {
     // fills and type, and one blue accent. Colour is reserved for content.
     readonly property QtObject palette: QtObject {
         readonly property color m3surfaceContainer: "#000000"
-        readonly property color m3surfaceContainerLow: "#0fffffff"
-        readonly property color m3surfaceContainerHigh: "#1affffff"
-        readonly property color m3surfaceContainerHighest: "#2bffffff"
+        // Liquid Glass: the same island, see-through with a light edge.
+        readonly property color glass: "#b8101014"
+        readonly property color m3surfaceContainerLow: "#1c1c1e"
+        readonly property color m3surfaceContainerHigh: "#2c2c2e"
+        readonly property color m3surfaceContainerHighest: "#3a3a3c"
         readonly property color m3onSurface: "#ffffff"
         readonly property color m3onSurfaceVariant: "#99ebebf5"
         readonly property color m3outline: "#4debebf5"

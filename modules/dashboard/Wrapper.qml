@@ -19,8 +19,11 @@ Item {
     required property ScreenState screenState
     required property ShellScreen screen
     property bool fullscreen
+    // A pinned island stays open until closed explicitly (Esc, the pin, or IPC).
+    property bool pinned
     property bool previewOpen
     property bool audioInput
+    property string infoParent: "controls"
     property bool notificationExpanded
     property string transientIcon
     property string transientText
@@ -44,10 +47,10 @@ Item {
     readonly property int shelfCount: IslandShelf.count
     // Clicking opens these pages as a carousel with page dots. Hovering only
     // peeks at what is happening now: music, a timer, the shelf, or a glance.
-    readonly property var carousel: ["controls", ...(Config.dashboard.showMedia ? ["media"] : []), "timer", "shelf", "clipboard", "workspaces", "more"]
+    readonly property var carousel: ["home", "controls", ...(Config.dashboard.showMedia ? ["media"] : []), "timer", "tools", "agent", "shelf", "clipboard", "workspaces", "more"]
     readonly property int carouselIndex: expanded ? carousel.indexOf(page) : -1
     readonly property bool inCarousel: carouselIndex >= 0
-    readonly property string nowPage: shelfPeek ? "shelf" : compact.hasMedia && Config.dashboard.showMedia ? "media" : IslandTimer.active ? "timer" : IslandShelf.count ? "shelf" : "glance"
+    readonly property string nowPage: Logic.activityPage(compact.activity, { shelfPeek, showMedia: Config.dashboard.showMedia, timerActive: IslandTimer.active, shelfCount: IslandShelf.count })
     readonly property string previewPage: nowPage
     readonly property string page: previewOpen ? previewPage : screenState.islandPage === "media" && !Config.dashboard.showMedia ? "controls" : screenState.islandPage
     readonly property var pending: Notifs.popups.filter(n => !n.closed && (n.popupScreenName === screen.name || !Quickshell.screens.some(s => s.name === n.popupScreenName) && ShellState.forActive() === screenState))
@@ -75,13 +78,13 @@ Item {
     readonly property string restingMode: compact.restingMode
     readonly property bool basicPage: page === "controls" || page === "media"
     // Pages that draw their own back/title row.
-    readonly property bool ownHeader: basicPage || ["wifi", "bluetooth", "timer", "more", "glance"].includes(page)
-    readonly property real dotsHeight: inCarousel ? 18 : 0
+    readonly property bool ownHeader: basicPage || ["home", "wifi", "bluetooth", "timer", "tools", "agent", "more", "glance"].includes(page)
+    readonly property real dotsHeight: inCarousel ? 44 : 0
     readonly property real contentY: ownHeader ? 14 : 46
     readonly property real padding: basicPage ? 16 : 20
-    readonly property real paneHeight: pane.item?.implicitHeight ?? (page === "controls" ? 286 : page === "media" ? 188 : 304)
-    readonly property real pageWidth: ({ controls: 424, media: 400, more: 448, info: 540, clipboard: 520, notifications: 480, workspaces: 744, power: 400, wifi: 404, bluetooth: 404, timer: 404, weather: 440, shelf: 420, glance: 340 })[page] ?? 424
-    readonly property real feedbackWidth: feedbackTrack ? 380 : feedbackLevel ? 300 : 280
+    readonly property real paneHeight: pane.item?.implicitHeight ?? (page === "controls" ? 286 : page === "media" ? 150 : 304)
+    readonly property real pageWidth: ({ home: 560, controls: 424, media: 360, more: 448, info: 540, clipboard: 560, notifications: 480, workspaces: 744, power: 400, wifi: 404, bluetooth: 404, audio: 424, recording: 360, timer: 404, agent: 600, tools: 460, weather: 440, shelf: 420, glance: 340 })[page] ?? 424
+    readonly property real feedbackWidth: feedbackTrack ? 380 : feedbackLevel ? 300 : transientDetail ? 420 : 280
     readonly property real targetWidth: expanded || previewOpen ? pageWidth : showingToast ? notificationExpanded ? 480 : 360 : showingFeedback ? feedbackWidth : compact.implicitWidth
     readonly property real targetHeight: expanded || previewOpen ? paneHeight + contentY + 16 + dotsHeight : showingToast ? notification.itemAt(0)?.implicitHeight ?? 76 : showingFeedback ? feedbackTrack ? 60 : 40 : 36
     implicitWidth: Math.min(screen.width - 32, targetWidth)
@@ -91,7 +94,7 @@ Item {
 
     // Detail pages and the carousel page they belong to.
     function parentPage(name: string): string {
-        return ({ wifi: "controls", bluetooth: "controls", info: "controls", power: "more", notifications: "more", weather: "more" })[name] ?? "";
+        return ({ wifi: "controls", bluetooth: "controls", audio: "controls", recording: "controls", info: infoParent, power: "more", notifications: "more", weather: "more" })[name] ?? "";
     }
     function depth(name: string): int { return parentPage(name) ? 1 : 0; }
     function stepPage(direction: int): void {
@@ -102,6 +105,7 @@ Item {
     function openPage(name: string): void {
         if (!Config.dashboard.enabled) return;
         if (name === "connections") name = "wifi";
+        if (name === "info") infoParent = expanded && page === "home" ? "home" : "controls";
         previewOpen = false;
         screenState.launcher = false;
         screenState.islandPage = name === "media" && !Config.dashboard.showMedia ? "controls" : name;
@@ -112,6 +116,7 @@ Item {
         else openPage(section);
     }
     function close(): void {
+        pinned = false;
         screenState.dashboard = false;
         previewOpen = false;
         enterDelay.stop();
@@ -206,7 +211,7 @@ Item {
         blur: 34
         spread: -12
         offset.y: 14
-        color: Qt.alpha("black", .9)
+        color: Qt.alpha("black", IslandTools.glass ? .3 : .9)
     }
     Item {
         id: surface
@@ -216,14 +221,15 @@ Item {
         readonly property real ear: Math.max(0, Math.min(radius * .7, height - radius, 22))
         readonly property real r: Math.min(radius, width / 2, height)
         anchors.fill: parent
+        anchors.bottomMargin: root.dotsHeight
         Behavior on radius { enabled: root.motionScale > 0; IslandSpring { motionScale: root.motionScale; growing: false } }
         Shape {
             anchors.fill: parent
             preferredRendererType: Shape.CurveRenderer
             ShapePath {
-                fillColor: IslandTheme.palette.m3surfaceContainer
-                strokeColor: surface.critical ? Qt.alpha(IslandTheme.palette.m3error, .55) : "transparent"
-                strokeWidth: surface.critical ? 1 : 0
+                fillColor: IslandTools.glass ? IslandTheme.palette.glass : IslandTheme.palette.m3surfaceContainer
+                strokeColor: surface.critical ? Qt.alpha(IslandTheme.palette.m3error, .55) : IslandTools.glass ? "#2effffff" : "transparent"
+                strokeWidth: surface.critical || IslandTools.glass ? 1 : 0
                 startX: -surface.ear; startY: 0
                 PathLine { x: surface.width + surface.ear; y: 0 }
                 PathArc { x: surface.width; y: surface.ear; radiusX: surface.ear; radiusY: surface.ear; direction: PathArc.Counterclockwise }
@@ -385,7 +391,7 @@ Item {
     TapHandler {
         enabled: !root.expanded && !root.showingToast
         acceptedButtons: Qt.LeftButton | Qt.MiddleButton | Qt.RightButton
-        onTapped: (point, button) => root.openPage(button === Qt.RightButton ? "controls" : button === Qt.MiddleButton ? "workspaces" : root.nowPage === "glance" ? "controls" : root.nowPage)
+        onTapped: (point, button) => root.openPage(button === Qt.RightButton ? "controls" : button === Qt.MiddleButton ? "workspaces" : root.nowPage === "glance" ? "home" : root.nowPage)
     }
     Item {
         anchors.fill: parent
@@ -499,7 +505,7 @@ Item {
                     Accessible.name: qsTr("Back")
                     onClicked: root.openPage(root.parentPage(root.page))
                 }
-                IslandText { Layout.fillWidth: true; text: ({ info: qsTr("Info"), clipboard: qsTr("Clipboard"), notifications: qsTr("Notifications"), workspaces: qsTr("Windows"), power: qsTr("Power"), weather: qsTr("Weather"), shelf: qsTr("Shelf") })[root.page] ?? ""; font.pixelSize: 15; font.weight: Font.DemiBold }
+                IslandText { Layout.fillWidth: true; text: ({ info: qsTr("Info"), clipboard: qsTr("Clipboard"), notifications: qsTr("Notifications"), workspaces: qsTr("Windows"), power: qsTr("Power"), weather: qsTr("Weather"), shelf: qsTr("Shelf"), audio: qsTr("Audio devices"), recording: qsTr("Screen recording") })[root.page] ?? ""; font.pixelSize: 15; font.weight: Font.DemiBold }
             }
             Loader {
                 id: pane
@@ -509,38 +515,10 @@ Item {
                 active: root.expanded || root.previewOpen || releaseDelay.running
                 visible: active
                 enabled: root.expanded || root.previewOpen
-                sourceComponent: ({ wifi: wifiPane, bluetooth: bluetoothPane, timer: timerPane, glance: glancePane, weather: weatherPane, clipboard: clipboardPane, shelf: shelfPane, media: mediaPane, info: infoPane, more: morePane, controls: controlsPane, notifications: notificationsPane, power: powerPane })[root.page] ?? workspacePane
+                sourceComponent: ({ home: homePane, wifi: wifiPane, bluetooth: bluetoothPane, audio: audioPane, recording: recordingPane, timer: timerPane, tools: toolsPane, agent: agentPane, glance: glancePane, weather: weatherPane, clipboard: clipboardPane, shelf: shelfPane, media: mediaPane, info: infoPane, more: morePane, controls: controlsPane, notifications: notificationsPane, power: powerPane })[root.page] ?? workspacePane
             }
-            // Page dots: the current page is a short bar; any dot jumps to its page.
-            Row {
-                anchors.horizontalCenter: parent.horizontalCenter
-                y: root.contentY + root.paneHeight + 6
-                visible: root.inCarousel
-                spacing: 0
-                Repeater {
-                    model: root.carousel
-                    Item {
-                        id: dot
-                        required property string modelData
-                        required property int index
-                        readonly property bool current: index === root.carouselIndex
-                        width: bar.width + 5; height: 14
-                        Accessible.role: Accessible.Button
-                        Accessible.name: ({ controls: qsTr("Controls"), media: qsTr("Media"), timer: qsTr("Timer"), shelf: qsTr("Shelf"), clipboard: qsTr("Clipboard"), workspaces: qsTr("Windows"), more: qsTr("More") })[modelData] ?? modelData
-                        Rectangle {
-                            id: bar
-                            anchors.centerIn: parent
-                            width: dot.current ? 15 : 4; height: 4; radius: 2
-                            color: dot.current ? IslandTheme.palette.m3onSurface : dotHover.hovered ? IslandTheme.palette.m3onSurfaceVariant : IslandTheme.palette.handle
-                            Behavior on width { enabled: root.motionScale > 0; IslandSpring { motionScale: root.motionScale } }
-                            Behavior on color { ColorAnimation { duration: 160 * root.motionScale } }
-                        }
-                        HoverHandler { id: dotHover; cursorShape: Qt.PointingHandCursor }
-                        TapHandler { onTapped: root.openPage(dot.modelData) }
-                    }
-                }
-            }
-            Component { id: controlsPane; IslandControlsView { screen: root.screen; onPageRequested: page => root.openPage(page); onDetailRequested: section => root.toggleDetail(section); onCloseRequested: root.close() } }
+            Component { id: controlsPane; IslandControlsView { screen: root.screen; onPageRequested: page => root.openPage(page); onDetailRequested: section => root.toggleDetail(section); onAudioRequested: input => { root.audioInput = input; root.openPage("audio"); }; onCloseRequested: root.close() } }
+            Component { id: homePane; IslandHomeView { maximumHeight: root.screen.height - 120; onPageRequested: page => { if (page === "info") root.screenState.dashboardDate = new Date(); root.openPage(page); } } }
             Component { id: morePane; IslandMoreView { screen: root.screen; onPageRequested: page => root.openPage(page) } }
             Component { id: workspacePane; IslandWorkspacesView { screen: root.screen; interactiveFocus: root.expanded; layoutTargetWidth: Math.min(root.screen.width - 32, 744) - 40; onCloseRequested: root.close() } }
             Component { id: wifiPane; IslandWifiView { onBackRequested: root.openPage("controls"); onCloseRequested: root.close() } }
@@ -571,6 +549,22 @@ Item {
                 }
             }
         }
+    }
+    // The page dots live on a small island of their own under the main one.
+    IslandNavigation {
+        objectName: "islandNavigation"
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: 2
+        visible: root.inCarousel && opacity > 0
+        opacity: root.inCarousel ? 1 : 0
+        Behavior on opacity { NumberAnimation { duration: 160 * root.motionScale } }
+        pages: root.carousel
+        currentPage: root.page
+        pinned: root.pinned
+        onPageRequested: page => root.openPage(page)
+        onStepRequested: direction => root.stepPage(direction)
+        onPinToggled: root.pinned = !root.pinned
     }
     // Two-finger swipe (or a sideways wheel) turns carousel pages. It sits
     // above the pages so sliders and lists cannot swallow it; vertical
