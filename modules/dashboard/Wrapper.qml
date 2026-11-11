@@ -11,6 +11,7 @@ import Caelestia.Config
 import qs.components
 import qs.services
 import "helpers/ActivityLogic.js" as Logic
+import "helpers/LiveLogic.js" as LiveLogic
 
 Item {
     id: root
@@ -52,6 +53,7 @@ Item {
     readonly property var foreground: pending.length ? pending[pending.length - 1] : null
     readonly property bool showingToast: !!foreground && !expanded
     readonly property bool showingFeedback: feedbackTimer.running && !expanded && !showingToast && !previewOpen
+    readonly property color transientTint: IslandTheme.palette[LiveLogic.iconTint(transientIcon)]
     readonly property bool feedbackLevel: transientValue >= 0
     readonly property bool feedbackTrack: !!transientArt || transientIcon === "music_note" && !!transientDetail
     readonly property string mode: expanded ? page : showingToast ? "notification" : previewOpen ? "peek" : showingFeedback ? "feedback" : "compact"
@@ -378,12 +380,17 @@ Item {
                     Image { anchors.fill: parent; source: root.transientArt; sourceSize: Qt.size(80, 80); fillMode: Image.PreserveAspectCrop; asynchronous: true }
                     MaterialIcon { anchors.centerIn: parent; visible: !root.transientArt; text: "music_note"; color: IslandTheme.palette.m3primary; fontStyle: Tokens.font.icon.medium }
                 }
-                MaterialIcon { visible: !root.feedbackTrack; text: root.transientIcon; color: root.transientIcon === "bolt" ? IslandTheme.palette.success : IslandTheme.palette.m3primary; fontStyle: Tokens.font.icon.small }
+                Rectangle {
+                    visible: !root.feedbackTrack
+                    implicitWidth: 26; implicitHeight: 26; radius: 13
+                    color: root.transientTint
+                    MaterialIcon { anchors.centerIn: parent; text: root.transientIcon; fill: 1; color: "#ffffff"; fontStyle: Tokens.font.icon.small }
+                }
                 ColumnLayout {
                     Layout.fillWidth: !root.feedbackLevel
                     spacing: 0
                     IslandText { Layout.fillWidth: true; visible: root.feedbackTrack; text: qsTr("Now playing"); font.pixelSize: 10; color: IslandTheme.palette.m3onSurfaceVariant }
-                    IslandText { Layout.fillWidth: true; Layout.maximumWidth: root.feedbackLevel ? 96 : 300; text: root.transientText; font.pixelSize: root.feedbackTrack ? 13 : 12; font.weight: root.feedbackTrack ? Font.DemiBold : Font.Normal; elide: Text.ElideRight }
+                    IslandText { Layout.fillWidth: true; Layout.minimumWidth: 40; Layout.maximumWidth: root.feedbackLevel ? 96 : 300; text: root.transientText; font.pixelSize: root.feedbackTrack ? 13 : 12; font.weight: root.feedbackTrack ? Font.DemiBold : Font.Normal; elide: Text.ElideRight }
                     IslandText { Layout.fillWidth: true; visible: root.feedbackTrack && !!root.transientDetail; text: root.transientDetail; font.pixelSize: 11; color: IslandTheme.palette.m3onSurfaceVariant; elide: Text.ElideRight }
                 }
                 Rectangle {
@@ -394,13 +401,15 @@ Item {
                     Rectangle {
                         height: parent.height; radius: parent.radius
                         width: parent.width * Logic.clampUnit(root.transientValue)
-                        color: root.transientIcon === "bolt" ? IslandTheme.palette.success : IslandTheme.palette.trackFill
+                        color: root.transientTint
                         Behavior on width { NumberAnimation { duration: 120 * root.motionScale; easing.type: Easing.OutCubic } }
                     }
                 }
                 IslandText {
                     visible: root.feedbackLevel || !root.feedbackTrack && !!root.transientDetail
                     Layout.minimumWidth: root.feedbackLevel ? 34 : 0
+                    Layout.maximumWidth: root.feedbackLevel ? 80 : 190
+                    elide: Text.ElideMiddle
                     horizontalAlignment: Text.AlignRight
                     text: root.feedbackLevel && !root.transientDetail ? `${Math.round(Logic.clampUnit(root.transientValue) * 100)}%` : root.transientDetail
                     font.pixelSize: 12; font.features: { "tnum": 1 }

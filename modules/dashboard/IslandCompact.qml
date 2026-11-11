@@ -116,5 +116,36 @@ Item {
             scale: .85
             width: 32; height: 22
         }
+        MaterialIcon {
+            id: microphoneBadge
+            objectName: "islandMicrophoneBadge"
+            anchors.verticalCenter: parent.verticalCenter
+            visible: Audio.sourceMuted
+            text: "mic_off"
+            fontStyle: Tokens.font.icon.small
+            color: IslandTheme.palette.m3onSurfaceVariant
+            Accessible.role: Accessible.Indicator
+            Accessible.name: qsTr("Microphone muted")
+        }
+        MaterialIcon {
+            objectName: "islandCameraBadge"
+            anchors.verticalCenter: parent.verticalCenter
+            visible: IslandLive.cameraActive
+            text: "videocam"
+            fontStyle: Tokens.font.icon.small
+            color: IslandTheme.palette.success
+            Accessible.role: Accessible.Indicator
+            Accessible.name: qsTr("Camera in use")
+        }
+        MaterialIcon {
+            objectName: "islandMicActiveBadge"
+            anchors.verticalCenter: parent.verticalCenter
+            visible: IslandLive.micActive && !Audio.sourceMuted
+            text: "mic"
+            fontStyle: Tokens.font.icon.small
+            color: "#ff9f0a"
+            Accessible.role: Accessible.Indicator
+            Accessible.name: qsTr("Microphone in use")
+        }
     }
 }
