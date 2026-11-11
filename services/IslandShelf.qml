@@ -19,6 +19,35 @@ Singleton {
     property var queue: []
     signal added(int count, string firstName)
 
+    // Tools: zip, convert, resize and PDF of everything on the shelf.
+    readonly property string toolsHelper: Quickshell.shellPath("modules/dashboard/helpers/shelf_tools.py")
+    property string toolMessage
+    property bool toolError
+    readonly property bool toolBusy: toolProcess.running
+    function runTool(label: string, args: var): void {
+        if (toolBusy || !items.length) return;
+        toolMessage = qsTr("%1…").arg(label);
+        toolError = false;
+        toolProcess.label = label;
+        toolProcess.command = ["python3", "-I", toolsHelper, ...args, ...items.map(i => i.path)];
+        toolProcess.running = true;
+    }
+    Process {
+        id: toolProcess
+        property string label
+        stdout: StdioCollector {
+            onStreamFinished: {
+                let result = {};
+                try { result = JSON.parse(text); } catch (_) { result = { error: qsTr("The tool did not finish") }; }
+                root.toolError = !!result.error;
+                if (result.error) { root.toolMessage = result.error; return; }
+                const names = result.outputs.map(p => p.slice(p.lastIndexOf("/") + 1));
+                root.toolMessage = qsTr("%1: saved %2").arg(toolProcess.label).arg(names.length > 2 ? qsTr("%1 files").arg(names.length) : names.join(", "));
+                root.add(result.outputs);
+            }
+        }
+    }
+
     function add(paths: var): void {
         const fresh = paths.filter(p => typeof p === "string" && p.startsWith("/"));
         if (!fresh.length) return;

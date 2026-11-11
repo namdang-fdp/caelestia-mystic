@@ -1,5 +1,6 @@
 pragma ComponentBehavior: Bound
 import QtQuick
+import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Shapes
 import Quickshell
@@ -18,7 +19,7 @@ Item {
     readonly property bool exporting: list.exportingCount > 0
     readonly property int visibleRows: Math.min(4, IslandShelf.count)
     signal closeRequested
-    implicitHeight: IslandShelf.count ? visibleRows * 56 - 4 + 30 : 132
+    implicitHeight: IslandShelf.count ? visibleRows * 56 - 4 + 30 + 40 : 132
 
     // Empty shelf, or a file hovering over it: the drop zone.
     Rectangle {
@@ -66,7 +67,7 @@ Item {
     ListView {
         id: list
         property int exportingCount
-        anchors { left: parent.left; right: parent.right; top: parent.top; bottom: footer.top; bottomMargin: 8 }
+        anchors { left: parent.left; right: parent.right; top: parent.top; bottom: IslandShelf.count ? shelfTools.top : footer.top; bottomMargin: 8 }
         visible: IslandShelf.count > 0
         opacity: root.dropActive ? .25 : 1
         Behavior on opacity { NumberAnimation { duration: 160 * Tokens.anim.durations.scale } }
@@ -156,6 +157,37 @@ Item {
                 }
             }
         }
+    }
+    ColumnLayout {
+        id: shelfTools
+        visible: IslandShelf.count > 0
+        anchors { left: parent.left; right: parent.right; bottom: footer.top; bottomMargin: 6 }
+        spacing: 4
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 4
+            Repeater {
+                model: [
+                    { t: qsTr("ZIP"), i: "folder_zip", a: ["zip"], l: qsTr("Zip") },
+                    { t: "PNG", i: "image", a: ["convert", "png"], l: qsTr("Convert to PNG") },
+                    { t: "JPG", i: "image", a: ["convert", "jpg"], l: qsTr("Convert to JPEG") },
+                    { t: "WEBP", i: "image", a: ["convert", "webp"], l: qsTr("Convert to WebP") },
+                    { t: "1280", i: "photo_size_select_large", a: ["resize", "1280"], l: qsTr("Resize to 1280 px") },
+                    { t: "PDF", i: "picture_as_pdf", a: ["pdf"], l: qsTr("Images to PDF") }
+                ]
+                IslandButton {
+                    required property var modelData
+                    Layout.fillWidth: true
+                    text: modelData.t; iconName: modelData.i
+                    implicitHeight: 26; leftPadding: 6; rightPadding: 6
+                    enabled: !IslandShelf.toolBusy
+                    Accessible.name: modelData.l
+                    ToolTip.visible: hovered; ToolTip.text: modelData.l; ToolTip.delay: 400
+                    onClicked: IslandShelf.runTool(modelData.l, modelData.a)
+                }
+            }
+        }
+        IslandText { visible: !!IslandShelf.toolMessage; Layout.fillWidth: true; text: IslandShelf.toolMessage; font.pixelSize: 11; elide: Text.ElideMiddle; color: IslandShelf.toolError ? IslandTheme.palette.m3error : IslandTheme.palette.green }
     }
     RowLayout {
         id: footer
