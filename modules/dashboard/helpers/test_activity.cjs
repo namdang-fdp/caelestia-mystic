@@ -6,6 +6,29 @@ const path=require('node:path');
 const logic={};
 vm.createContext(logic);
 vm.runInContext(fs.readFileSync(path.join(__dirname,'ActivityLogic.js'),'utf8').replace(/^\.pragma library\s*/,'').trim(),logic);
+test('leaving the microphone muted never replaces music, stats or the idle companion',()=>{
+ assert.equal(logic.currentActivity({microphoneMuted:true,hasAudio:true}),'media');
+ assert.equal(logic.currentActivity({microphoneMuted:true,restingMode:'stats'}),'stats');
+ assert.equal(logic.currentActivity({microphoneMuted:true}),'idle');
+});
+test('activity priority keeps health and recording above music and preserves the timer without audio',()=>{
+ assert.equal(logic.currentActivity({resizing:true,warning:true,recording:true,hasAudio:true}),'resize');
+ assert.equal(logic.currentActivity({warning:true,recording:true,hasAudio:true}),'health');
+ assert.equal(logic.currentActivity({recording:true,timerActive:true,hasAudio:true}),'recording');
+ assert.equal(logic.currentActivity({timerActive:true,hasAudio:false}),'timer');
+ assert.equal(logic.currentActivity({timerActive:true,hasAudio:true}),'media');
+});
+test('hover and click route the displayed activity to its controls even while music plays',()=>{
+ const options={showMedia:true,timerActive:true,shelfCount:2};
+ for(const [activity,page] of [['health','info'],['recording','recording'],['resize','workspaces'],['stats','info'],['timer','timer'],['media','media']])
+  assert.equal(logic.activityPage(activity,options),page);
+});
+test('file drop takes precedence and hidden media falls back to useful content',()=>{
+ assert.equal(logic.activityPage('health',{shelfPeek:true}),'shelf');
+ assert.equal(logic.activityPage('media',{showMedia:false,timerActive:true}),'timer');
+ assert.equal(logic.activityPage('media',{showMedia:false,shelfCount:1}),'shelf');
+ assert.equal(logic.activityPage('idle',{}),'glance');
+});
 test('deadline countdown catches up after sleep and never becomes negative',()=>{
  assert.equal(logic.remaining(100000,20000),80000);
  assert.equal(logic.remaining(100000,150000),0);

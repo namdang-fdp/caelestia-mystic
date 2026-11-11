@@ -18,6 +18,7 @@ Item {
     required property ShellScreen screen
     property bool fullscreen
     property bool previewOpen
+    property bool audioInput
     property bool notificationExpanded
     property string transientIcon
     property string transientText
@@ -295,9 +296,9 @@ Item {
         }
     }
     Connections {
-        target: Players.active
+        target: IslandAudio.player
         function onTrackTitleChanged(): void {
-            const player = Players.active;
+            const player = IslandAudio.player;
             if (!player?.isPlaying || !player.trackTitle || compact.restingMode === "lyrics") return;
             root.feedback("music_note", player.trackTitle, -1, player.trackArtist || Players.getIdentity(player), Players.getArtUrl(player), 2600);
         }
@@ -355,7 +356,6 @@ Item {
             visible: opacity > 0
             Behavior on opacity { NumberAnimation { duration: 160 * root.motionScale; easing.type: Easing.OutCubic } }
             audioVisible: visible && root.visible
-            monitorAudio: root.visible
             focusedScreen: Hypr.focusedMonitor === root.monitor
         }
         // Transient feedback: text pill, OSD level bar, or now-playing card.

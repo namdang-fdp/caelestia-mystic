@@ -3,8 +3,6 @@ import QtQuick
 import Caelestia.Config
 import Caelestia.Services
 import Quickshell.Widgets
-import Quickshell.Services.Mpris
-import Quickshell.Services.Pipewire
 import qs.components
 import qs.services
 import "helpers/ActivityLogic.js" as Logic
@@ -12,15 +10,15 @@ import "helpers/ActivityLogic.js" as Logic
 Item {
     id: root
     property bool audioVisible
-    property bool monitorAudio
     // The companion animates only on the focused screen.
     property bool focusedScreen: true
     // "auto" follows the live activity and shows the companion next to the
     // clock when nothing is happening; "lyrics" and "stats" are opt-in faces.
     property string restingMode: "auto"
     readonly property bool companion: activity === "idle" && restingMode === "auto"
-    readonly property bool hasMedia: !!Players.active && Players.active.playbackState !== MprisPlaybackState.Stopped
-    readonly property bool genericAudio: !hasMedia && sinkLinks.linkGroups.some(g => g.state === PwLinkState.Active)
+    readonly property var player: IslandAudio.player
+    readonly property bool hasMedia: !!player
+    readonly property bool genericAudio: !hasMedia && IslandAudio.audible
     readonly property bool hasActivity: hasMedia || genericAudio
     readonly property bool lyricsReady: restingMode === "lyrics" && hasMedia && Lyrics.hasLyrics
     readonly property string lyric: lyricsReady ? Lyrics.lyrics[Lyrics.indexForTime(Players.active?.position ?? 0)] ?? "" : ""
@@ -34,13 +32,11 @@ Item {
     function greet(): void { eyes.greet(); }
     onAvailableModesChanged: if (!availableModes.includes(restingMode)) restingMode = "auto"
     // Only the lyrics face needs the track's lyrics; the media page requests them itself.
-    onLyricsTrackChanged: if (restingMode === "lyrics" && hasMedia) Lyrics.setTrack(Players.active.trackArtist, Players.active.trackTitle, Players.active.trackAlbum, Players.active.length)
-    readonly property string lyricsTrack: restingMode === "lyrics" && hasMedia ? `${Players.active.trackArtist}\n${Players.active.trackTitle}` : ""
-    PwNodeLinkTracker { id: sinkLinks; node: root.monitorAudio ? Audio.sink : null }
-    PwObjectTracker { objects: sinkLinks.linkGroups }
+    onLyricsTrackChanged: if (restingMode === "lyrics" && hasMedia) Lyrics.setTrack(player.trackArtist, player.trackTitle, player.trackAlbum, player.length)
+    readonly property string lyricsTrack: restingMode === "lyrics" && hasMedia ? `${player.trackArtist}\n${player.trackTitle}` : ""
     ServiceRef { service: root.activity === "stats" && root.audioVisible ? Cpu : null }
     ServiceRef { service: root.activity === "stats" && root.audioVisible ? Memory : null }
-    Timer { interval: 500; repeat: true; running: root.lyricsReady && root.audioVisible && !!Players.active?.isPlaying; onTriggered: Players.active?.positionChanged() }
+    Timer { interval: 500; repeat: true; running: root.lyricsReady && root.audioVisible && !!root.player?.isPlaying; onTriggered: root.player?.positionChanged() }
     Row {
         id: row
         anchors.centerIn: parent
@@ -72,7 +68,7 @@ Item {
             visible: root.activity === "timer"
             width: 20; height: 20
             anchors.verticalCenter: parent.verticalCenter
-            IslandRing { anchors.fill: parent; progress: 1 - IslandTimer.progress; colour: IslandTimer.paused ? IslandTheme.palette.warning : IslandTheme.palette.m3tertiary }
+            IslandRing { anchors.fill: parent; progress: 1 - IslandTimer.progress; colour: IslandTimer.paused ? IslandTheme.palette.yellow : IslandTheme.palette.orange }
         }
         MaterialIcon {
             anchors.verticalCenter: parent.verticalCenter
@@ -85,7 +81,10 @@ Item {
             id: label
             visible: !root.companion
             anchors.verticalCenter: parent.verticalCenter
-            width: Math.min(root.lyricsReady ? 280 : 200, implicitWidth)
+            // Reserve space for concurrent badges before eliding the title.
+            width: Math.min(implicitWidth, Math.max(0, (root.lyricsReady ? 280 : 200)
+                - (root.timerChip ? timerBadge.implicitWidth + row.spacing : 0)
+                - (Audio.sourceMuted ? microphoneBadge.implicitWidth + row.spacing : 0)))
             text: root.activity === "idle" ? Time.format("ddd, MMM d") : root.activityLabel
             color: root.activity === "idle" ? IslandTheme.palette.m3onSurfaceVariant : root.lyric ? IslandTheme.palette.m3tertiary : IslandTheme.palette.m3onSurface
             font.pixelSize: root.activity === "idle" || root.activity === "stats" ? 12 : 14
@@ -103,16 +102,17 @@ Item {
             }
         }
         Row {
+            id: timerBadge
             visible: root.timerChip
             spacing: 4
             anchors.verticalCenter: parent.verticalCenter
-            IslandRing { width: 14; height: 14; anchors.verticalCenter: parent.verticalCenter; progress: 1 - IslandTimer.progress; colour: IslandTimer.paused ? IslandTheme.palette.warning : IslandTheme.palette.m3tertiary }
+            IslandRing { width: 14; height: 14; anchors.verticalCenter: parent.verticalCenter; progress: 1 - IslandTimer.progress; colour: IslandTimer.paused ? IslandTheme.palette.yellow : IslandTheme.palette.orange }
             IslandText { anchors.verticalCenter: parent.verticalCenter; text: IslandTimer.clock; font.pixelSize: 12; font.features: { "tnum": 1 }; color: IslandTheme.palette.m3onSurfaceVariant }
         }
         IslandSpectrum {
             anchors.verticalCenter: parent.verticalCenter
             visible: root.activity === "media"
-            running: root.audioVisible && root.activity === "media" && (root.hasMedia ? Players.active?.isPlaying : root.genericAudio) && !Audio.muted && Audio.volume > 0
+            running: root.audioVisible && root.activity === "media" && IslandAudio.audible
             scale: .85
             width: 32; height: 22
         }
