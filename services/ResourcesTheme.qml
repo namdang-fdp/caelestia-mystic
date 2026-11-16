@@ -8,6 +8,8 @@ import Quickshell
 Singleton {
     readonly property color surface: "#0A0A0A"
     readonly property color border: "#262626"
+    readonly property color track: "#1F1F1F"
+    readonly property color hover: "#171717"
     readonly property color text: "#FFFFFF"
     readonly property color textDim: "#A1A1A1"
     readonly property color ok: "#3DD68C"

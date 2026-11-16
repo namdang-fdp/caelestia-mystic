@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Layouts
 import qs.services
 
 Item {
@@ -8,23 +9,40 @@ Item {
     Component.onCompleted: Resources.viewers++
     Component.onDestruction: Resources.viewers--
 
-    Column {
+    ColumnLayout {
         anchors.fill: parent
-        anchors.margins: 16
-        spacing: 8
+        anchors.margins: 20
+        spacing: 16
 
         Text {
             text: "Resources"
             color: ResourcesTheme.text
             font.family: ResourcesTheme.uiFont
-            font.pixelSize: 15
+            font.pixelSize: 16
             font.weight: Font.DemiBold
         }
-        Text {
-            text: Resources.ready ? "RAM " + Math.round(Resources.system.used_kb / 1024) + " MB used" : "Loading…"
-            color: ResourcesTheme.textDim
-            font.family: ResourcesTheme.numFont
-            font.pixelSize: 12
+
+        Summary {
+            Layout.fillWidth: true
+        }
+        Rectangle {
+            Layout.fillWidth: true
+            implicitHeight: 1
+            color: ResourcesTheme.border
+        }
+        GroupList {
+            Layout.fillWidth: true
+        }
+        Rectangle {
+            Layout.fillWidth: true
+            implicitHeight: 1
+            color: ResourcesTheme.border
+        }
+        AgentList {
+            Layout.fillWidth: true
+        }
+        Item {
+            Layout.fillHeight: true
         }
     }
 }
