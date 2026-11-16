@@ -6,6 +6,7 @@ import qs.components
 import qs.modules.dashboard as Dashboard
 import qs.modules.launcher as Launcher
 import qs.modules.utilities as Utilities
+import qs.modules.resources as ResourcesPanel
 import qs.modules.utilities.toasts as Toasts
 
 Item {
@@ -17,6 +18,7 @@ Item {
     readonly property alias launcher: launcher
     readonly property alias dashboard: dashboard
     readonly property alias utilities: utilities
+    readonly property alias resources: resources
     readonly property alias toasts: toasts
     anchors.fill: parent
     anchors.margins: borderThickness
@@ -42,6 +44,12 @@ Item {
         screenState: root.screenState
         anchors.bottom: parent.bottom
         anchors.right: parent.right
+    }
+    ResourcesPanel.Wrapper {
+        id: resources
+        screenState: root.screenState
+        anchors.left: parent.left
+        anchors.verticalCenter: parent.verticalCenter
     }
     Toasts.Toasts {
         id: toasts
