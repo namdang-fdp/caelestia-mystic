@@ -55,19 +55,19 @@ function agentRows(claude, sessions, groups, now) {
         return {
             kind: "claude", label: p.project || baseName(p.cwd) || "claude",
             state: session ? session.state : "idle", age_s: p.age_s, ram_kb: p.ram_kb,
-            orphan: !!p.orphan, aggregate: false,
+            orphan: !!p.orphan, aggregate: false, pid: p.pid, start: p.start || 0,
         };
     });
     for (const s of all.filter(x => x.agent === "codex")) {
         rows.push({
             kind: "codex", label: s.project || baseName(s.cwd) || "codex", state: s.state,
             age_s: Math.max(0, Math.round((at - Number(s.updated) * 1000) / 1000)),
-            ram_kb: 0, orphan: false, aggregate: false,
+            ram_kb: 0, orphan: false, aggregate: false, pid: 0, start: 0,
         });
     }
     const codex = Array.from(groups || []).find(g => g.name === "Codex");
     if (codex) {
-        rows.push({ kind: "codex", label: "Codex", state: "", age_s: 0, ram_kb: codex.ram_kb, orphan: false, aggregate: true });
+        rows.push({ kind: "codex", label: "Codex", state: "", age_s: 0, ram_kb: codex.ram_kb, orphan: false, aggregate: true, pid: 0, start: 0 });
     }
     return rows;
 }

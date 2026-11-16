@@ -44,6 +44,27 @@ Item {
         }
     }
 
+    // Result of the last Stop.
+    Rectangle {
+        visible: ResourcesActions.status !== ""
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: 16
+        anchors.horizontalCenter: parent.horizontalCenter
+        implicitWidth: statusText.implicitWidth + 24
+        implicitHeight: 28
+        radius: 14
+        color: ResourcesTheme.separator
+
+        Text {
+            id: statusText
+            anchors.centerIn: parent
+            text: ResourcesActions.status
+            color: ResourcesTheme.text
+            font.family: ResourcesTheme.uiFont
+            font.pixelSize: 12
+        }
+    }
+
     Component {
         id: overview
         Overview {

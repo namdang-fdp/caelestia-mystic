@@ -50,7 +50,7 @@ test('agentRows joins a Claude process to its session by pid',()=>{
  const claude=[{pid:10,cwd:'/h/a',project:'a',age_s:100,ram_kb:200,orphan:false}];
  const sessions=[{agent:'claude',session:'s1',pid:10,cwd:'/h/other',state:'working'}];
  const rows=c.agentRows(claude,sessions,[],NOW);
- D(rows,[{kind:'claude',label:'a',state:'working',age_s:100,ram_kb:200,orphan:false,aggregate:false}]);
+ D(rows,[{kind:'claude',label:'a',state:'working',age_s:100,ram_kb:200,orphan:false,aggregate:false,pid:10,start:0}]);
 });
 test('agentRows two processes sharing a cwd do not borrow state (unmatched is idle)',()=>{
  const claude=[{pid:10,cwd:'/h/a',project:'a',age_s:1,ram_kb:1,orphan:false},{pid:11,cwd:'/h/a',project:'a',age_s:2,ram_kb:2,orphan:false}];
@@ -72,8 +72,8 @@ test('agentRows adds Codex sessions and one aggregate row',()=>{
  const groups=[{name:'Codex',ram_kb:130000,cpu_percent:0,count:4}];
  const rows=c.agentRows([],sessions,groups,NOW);
  D(rows,[
-  {kind:'codex',label:'proj',state:'working',age_s:120,ram_kb:0,orphan:false,aggregate:false},
-  {kind:'codex',label:'Codex',state:'',age_s:0,ram_kb:130000,orphan:false,aggregate:true}]);
+  {kind:'codex',label:'proj',state:'working',age_s:120,ram_kb:0,orphan:false,aggregate:false,pid:0,start:0},
+  {kind:'codex',label:'Codex',state:'',age_s:0,ram_kb:130000,orphan:false,aggregate:true,pid:0,start:0}]);
 });
 test('triggerActive false when pressed, fullscreen, outside band, or x > strip',()=>{
  const base={x:1,y:540,width:1920,height:1080,strip:4,bandStart:0.15,bandEnd:0.85,pressed:false,fullscreen:false};
@@ -185,4 +185,10 @@ test('alertText names the top group',()=>{
  assert.match(t.title,/Memory/);assert.match(t.body,/88%/);assert.match(t.body,/Zen/);
  assert.match(c.alertText('swap',0.5,'').title,/Swap/);
  assert.doesNotMatch(c.alertText('ram',0.9,'').body,/Biggest/);
+});
+
+test('agentRows claude rows carry the pid and start ticks needed to stop them',()=>{
+ const claude=[{pid:7,start:4242,cwd:'/h/gone',project:'gone',age_s:9,ram_kb:3,orphan:true}];
+ const r=c.agentRows(claude,[],[],NOW)[0];
+ assert.equal(r.pid,7);assert.equal(r.start,4242);
 });
