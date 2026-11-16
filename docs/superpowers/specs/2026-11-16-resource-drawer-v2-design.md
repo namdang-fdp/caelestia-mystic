@@ -1,6 +1,6 @@
 # Resource Drawer v2 — Design
 
-Date: 2026-11-16 · Builds on `2026-11-16-left-resource-drawer-design.md` (v1, merged) · Status: **awaiting approval, nothing built**
+Date: 2026-11-16 · Builds on `2026-11-16-left-resource-drawer-design.md` (v1, merged) · Status: **built** (plan: `docs/superpowers/plans/2026-11-16-resource-drawer-v2.md`)
 
 ## 1. Intent and why
 
@@ -128,3 +128,19 @@ Sketch
 
 Sparkline drawing (Canvas vs Shape), exact paddings, animation of tab changes (a short cross-fade),
 the persisted-settings file, wording of banners and status lines, and the tests.
+
+## 9. Findings from building it
+
+- Stop is verified end to end on throwaway processes (a 350 MB python, a synthetic orphan named
+  `claude` with a deleted cwd, an `http.server` port). `proc_action.py` refuses a stale start time,
+  another user's process, protected names, pid 1 and its own ancestry; `qs` checks as `protected`.
+- Stop buttons in process and port rows appear only on hover (or while armed), to keep lists calm;
+  orphan rows in Agents keep theirs visible.
+- Closed-drawer cost with History (5 s `/proc` reads) and Alerts (30 s tick): about 0.5% of one core,
+  no spawned process. The `smaps_rollup` (PSS) reads dominated the open-drawer cost, so `proc_top.py`
+  caches PSS per process for ~10 s (about 0.09 s CPU per 2 s poll, plus a refresh burst).
+- The alert pipeline was checked with lowered thresholds: exactly one notification, then quiet for the cooldown.
+- GPU on this machine is a clock only (i915, no busy counter without root); the tab says so.
+- Not exercised live: the alert switch click, Docker Stop (would stop real containers), PR rows (no open PRs
+  at the time), fullscreen and window-drag. No input injection was available, so UI clicks were driven by a
+  temporary in-QML probe that called the same singleton functions the buttons call.
