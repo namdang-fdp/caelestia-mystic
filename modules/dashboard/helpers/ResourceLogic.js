@@ -82,3 +82,108 @@ function triggerActive(p) {
 function inPanel(x, y, left, width, top, height, slack) {
     return x >= left - slack && x <= left + width + slack && y >= top - slack && y <= top + height + slack;
 }
+
+// ---- v2: history, alerts, attention, confirmation -------------------------
+
+function kbField(text, key) {
+    const m = new RegExp("^" + key + ":\\s+(\\d+)", "m").exec(String(text || ""));
+    return m ? parseInt(m[1], 10) : 0;
+}
+
+function parseMeminfo(text) {
+    return {
+        total_kb: kbField(text, "MemTotal"), available_kb: kbField(text, "MemAvailable"),
+        swap_total_kb: kbField(text, "SwapTotal"), swap_free_kb: kbField(text, "SwapFree"),
+    };
+}
+
+// First "cpu" line of /proc/stat. idle counts idle + iowait.
+function parseCpuStat(text) {
+    const line = String(text || "").split("\n").find(l => /^cpu\s/.test(l));
+    if (!line) return { total: 0, idle: 0 };
+    const p = line.trim().split(/\s+/).slice(1, 9).map(Number);
+    if (p.length < 5 || p.some(n => !Number.isFinite(n))) return { total: 0, idle: 0 };
+    return { total: p.reduce((a, b) => a + b, 0), idle: p[3] + p[4] };
+}
+
+function cpuPercent(prev, cur) {
+    if (!prev || !cur) return 0;
+    const dt = cur.total - prev.total;
+    if (!(dt > 0)) return 0;
+    return Math.max(0, Math.min(100, (1 - (cur.idle - prev.idle) / dt) * 100));
+}
+
+function ring(list, value, max) {
+    const v = Number.isFinite(value) ? value : 0;
+    return Array.from(list || []).concat([v]).slice(-max);
+}
+
+function sparkPoints(values, width, height, ceiling) {
+    const list = Array.from(values || []);
+    const top = ceiling > 0 ? ceiling : 100;
+    return list.map((v, i) => {
+        const f = Math.max(0, Math.min(1, (Number.isFinite(v) ? v : 0) / top));
+        return { x: list.length === 1 ? width : i * (width / (list.length - 1)), y: height - f * height };
+    });
+}
+
+const ALERT = { ram: 0.85, swap: 0.5, need: 3, cooldownMs: 30 * 60 * 1000 };
+
+// A kind alerts after `need` consecutive hot samples, then stays quiet for the cooldown.
+// At most one kind fires per call (RAM first); the other waits for the next sample.
+function alertStep(state, sample, nowMs) {
+    const next = {};
+    const hot = { ram: sample.ramFrac >= ALERT.ram, swap: sample.swapFrac >= ALERT.swap };
+    for (const kind of ["ram", "swap"]) {
+        const prev = (state && state[kind]) || { streak: 0, last: null };
+        next[kind] = { streak: hot[kind] ? prev.streak + 1 : 0, last: prev.last };
+    }
+    let fire = null;
+    for (const kind of ["ram", "swap"]) {
+        const s = next[kind];
+        if (s.streak >= ALERT.need && (s.last === null || nowMs - s.last >= ALERT.cooldownMs)) {
+            s.last = nowMs;
+            fire = kind;
+            break;
+        }
+    }
+    return { state: next, fire: fire };
+}
+
+function alertText(kind, fraction, topGroup) {
+    const percent = Math.round(fraction * 100) + "% in use";
+    return {
+        title: kind === "ram" ? "Memory is high" : "Swap is high",
+        body: percent + (topGroup ? ". Biggest: " + topGroup + "." : "."),
+    };
+}
+
+// The one thing the Overview banner should point at, or null when all is well.
+function attention(fracs, rows) {
+    const hot = fracs.ram >= 0.85;
+    const warm = !hot && (fracs.ram >= 0.70 || fracs.swap >= 0.5);
+    if (!hot && !warm) return null;
+    const idle = Array.from(rows || []).filter(r => r.kind === "claude" && (r.state === "idle" || r.state === ""));
+    const held = idle.reduce((sum, r) => sum + r.ram_kb, 0);
+    const base = hot ? "Memory is high" : (fracs.ram >= 0.70 ? "Memory is getting full" : "Swap is under pressure");
+    if (held >= 200 * 1024) {
+        return { level: hot ? "hot" : "warm", tab: "agents", text: base + " — " + idle.length + " idle agent sessions use " + formatKb(held) };
+    }
+    return { level: hot ? "hot" : "warm", tab: "processes", text: base };
+}
+
+// Two-step confirmation: the first click arms a key for windowMs, the second fires.
+function confirmClick(armed, key, nowMs, windowMs) {
+    if (armed && armed.key === key && nowMs < armed.until) return { fire: true, armed: null };
+    return { fire: false, armed: { key: key, until: nowMs + windowMs } };
+}
+
+function orphanTargets(claude) {
+    return Array.from(claude || []).filter(p => p.orphan).map(p => ({ pid: p.pid, start: p.start }));
+}
+
+const PROTECTED = ["Hyprland", "hyprland", "quickshell", "qs", "systemd", "pipewire", "pipewire-pulse", "wireplumber", "dbus-daemon", "dbus-broker", "Xwayland"];
+
+function isProtected(name) {
+    return PROTECTED.indexOf(String(name)) >= 0;
+}

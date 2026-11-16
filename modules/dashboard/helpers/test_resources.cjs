@@ -92,3 +92,97 @@ test('inPanel respects slack',()=>{
  assert.equal(c.inPanel(100,45,0,360,50,500,10),true);
  assert.equal(c.inPanel(100,30,0,360,50,500,10),false);
 });
+
+// ---- v2: history, alerts, attention, confirm ----
+const MEM='MemTotal:       16000000 kB\nMemFree:  100 kB\nMemAvailable:    4000000 kB\nSwapTotal:       8000000 kB\nSwapFree:        6000000 kB\n';
+test('parseMeminfo reads kb fields and tolerates missing ones',()=>{
+ D(c.parseMeminfo(MEM),{total_kb:16000000,available_kb:4000000,swap_total_kb:8000000,swap_free_kb:6000000});
+ D(c.parseMeminfo('MemFree: 1 kB\n'),{total_kb:0,available_kb:0,swap_total_kb:0,swap_free_kb:0});
+ D(c.parseMeminfo(''),{total_kb:0,available_kb:0,swap_total_kb:0,swap_free_kb:0});
+});
+test('parseCpuStat and cpuPercent over two samples',()=>{
+ const a=c.parseCpuStat('cpu  100 0 100 700 100 0 0 0 0 0\ncpu0 1 2 3\n');
+ assert.equal(a.total,1000);assert.equal(a.idle,800);
+ const b=c.parseCpuStat('cpu  150 0 150 800 100 0 0 0 0 0\n');
+ assert.equal(b.total,1200);assert.equal(b.idle,900);
+ assert.equal(c.cpuPercent(a,b),50);
+});
+test('cpuPercent is 0 without a previous sample or progress',()=>{
+ const a=c.parseCpuStat('cpu  100 0 100 700 100 0 0 0 0 0');
+ assert.equal(c.cpuPercent(null,a),0);
+ assert.equal(c.cpuPercent(a,a),0);
+ D(c.parseCpuStat('garbage'),{total:0,idle:0});
+});
+test('ring caps length and stores non-finite as 0',()=>{
+ D(c.ring([1,2,3],4,3),[2,3,4]);
+ D(c.ring([],NaN,3),[0]);
+ D(c.ring([1],Infinity,3),[1,0]);
+});
+test('sparkPoints spreads x, inverts y and clamps',()=>{
+ D(c.sparkPoints([0,50,100],100,40,100),[{x:0,y:40},{x:50,y:20},{x:100,y:0}]);
+ D(c.sparkPoints([150,-5],10,10,100),[{x:0,y:0},{x:10,y:10}]);
+ D(c.sparkPoints([],10,10,100),[]);
+ D(c.sparkPoints([50],10,10,100),[{x:10,y:5}]);
+});
+const HOT={ramFrac:0.9,swapFrac:0.1},COOL={ramFrac:0.1,swapFrac:0.1},SWAP={ramFrac:0.1,swapFrac:0.6};
+const runAlerts=(samples,step=30000)=>{let s=null,fires=[];samples.forEach((x,i)=>{const r=c.alertStep(s,x,i*step);s=r.state;fires.push(r.fire);});return fires;};
+test('a single hot sample does not alert',()=>{
+ D(runAlerts([HOT]),[null]);
+ D(runAlerts([HOT,HOT]),[null,null]);
+});
+test('three consecutive hot samples alert once then stay quiet inside 30 minutes',()=>{
+ const fires=runAlerts([HOT,HOT,HOT,HOT,HOT]);
+ D(fires,[null,null,'ram',null,null]);
+ const many=Array(70).fill(HOT);               // 70 samples * 30 s = 35 min
+ const f=runAlerts(many);
+ assert.equal(f.filter(x=>x==='ram').length,2);
+ assert.equal(f.indexOf('ram'),2);
+});
+test('ram and swap alert independently',()=>{
+ D(runAlerts([SWAP,SWAP,SWAP]),[null,null,'swap']);
+ const both={ramFrac:0.9,swapFrac:0.6};
+ const f=runAlerts([both,both,both,both]);
+ assert.equal(f[2],'ram');
+ assert.equal(f[3],'swap');
+});
+test('a cool sample resets the streak',()=>{
+ D(runAlerts([HOT,HOT,COOL,HOT]),[null,null,null,null]);
+});
+const row=(o)=>Object.assign({kind:'claude',label:'x',state:'idle',age_s:1,ram_kb:0,orphan:false,aggregate:false},o);
+test('attention points to agents when idle sessions hold memory, else processes',()=>{
+ assert.equal(c.attention({ram:0.5,swap:0.1},[]),null);
+ const idle=[row({ram_kb:150000}),row({ram_kb:150000,state:''})];
+ const a=c.attention({ram:0.9,swap:0.1},idle);
+ assert.equal(a.level,'hot');assert.equal(a.tab,'agents');assert.match(a.text,/2 idle agent sessions/);
+ const p=c.attention({ram:0.9,swap:0.1},[row({ram_kb:1000})]);
+ assert.equal(p.tab,'processes');
+ assert.equal(c.attention({ram:0.75,swap:0.1},[]).level,'warm');
+ assert.equal(c.attention({ram:0.2,swap:0.6},[]).level,'warm');
+ const working=[row({ram_kb:900000,state:'working'})];
+ assert.equal(c.attention({ram:0.9,swap:0.1},working).tab,'processes');
+});
+test('confirmClick arms then fires inside the window, re-arms after it or for another key',()=>{
+ let r=c.confirmClick(null,'a',1000,3000);
+ assert.equal(r.fire,false);assert.equal(r.armed.key,'a');
+ const r2=c.confirmClick(r.armed,'a',3999,3000);
+ assert.equal(r2.fire,true);assert.equal(r2.armed,null);
+ const r3=c.confirmClick(r.armed,'a',4000,3000);
+ assert.equal(r3.fire,false);assert.equal(r3.armed.until,7000);
+ const r4=c.confirmClick(r.armed,'b',1500,3000);
+ assert.equal(r4.fire,false);assert.equal(r4.armed.key,'b');
+});
+test('orphanTargets keeps only orphans',()=>{
+ const claude=[{pid:1,start:10,orphan:false},{pid:2,start:20,orphan:true},{pid:3,start:30,orphan:true}];
+ D(c.orphanTargets(claude),[{pid:2,start:20},{pid:3,start:30}]);
+ D(c.orphanTargets([]),[]);
+});
+test('isProtected matches exactly the listed names',()=>{
+ for (const n of ['Hyprland','hyprland','quickshell','qs','systemd','pipewire','pipewire-pulse','wireplumber','dbus-daemon','dbus-broker','Xwayland']) assert.equal(c.isProtected(n),true,n);
+ for (const n of ['zen-bin','claude','node','','qs2']) assert.equal(c.isProtected(n),false,n);
+});
+test('alertText names the top group',()=>{
+ const t=c.alertText('ram',0.883,'Zen');
+ assert.match(t.title,/Memory/);assert.match(t.body,/88%/);assert.match(t.body,/Zen/);
+ assert.match(c.alertText('swap',0.5,'').title,/Swap/);
+ assert.doesNotMatch(c.alertText('ram',0.9,'').body,/Biggest/);
+});
