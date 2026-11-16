@@ -192,3 +192,14 @@ test('agentRows claude rows carry the pid and start ticks needed to stop them',(
  const r=c.agentRows(claude,[],[],NOW)[0];
  assert.equal(r.pid,7);assert.equal(r.start,4242);
 });
+
+test('formatRate picks a readable unit',()=>{
+ assert.equal(c.formatRate(0),'0 B/s');
+ assert.equal(c.formatRate(1023),'1023 B/s');
+ assert.equal(c.formatRate(1024),'1.0 KB/s');
+ assert.equal(c.formatRate(150*1024),'150 KB/s');
+ assert.equal(c.formatRate(1048576),'1.0 MB/s');
+ assert.equal(c.formatRate(5.5*1048576),'5.5 MB/s');
+ assert.equal(c.formatRate(-4),'0 B/s');
+ assert.equal(c.formatRate(NaN),'0 B/s');
+});

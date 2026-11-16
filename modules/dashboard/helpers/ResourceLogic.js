@@ -187,3 +187,13 @@ const PROTECTED = ["Hyprland", "hyprland", "quickshell", "qs", "systemd", "pipew
 function isProtected(name) {
     return PROTECTED.indexOf(String(name)) >= 0;
 }
+
+// Bytes per second as a short human string.
+function formatRate(bytesPerSec) {
+    if (!(bytesPerSec > 0)) return "0 B/s";
+    const unit = (value, name) => (value >= 100 ? Math.round(value) : value.toFixed(1)) + " " + name;
+    if (bytesPerSec < 1024) return Math.round(bytesPerSec) + " B/s";
+    if (bytesPerSec < 1048576) return unit(bytesPerSec / 1024, "KB/s");
+    if (bytesPerSec < 1073741824) return unit(bytesPerSec / 1048576, "MB/s");
+    return unit(bytesPerSec / 1073741824, "GB/s");
+}

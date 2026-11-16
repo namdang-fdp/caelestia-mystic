@@ -22,7 +22,8 @@ Item {
                 { id: "overview", icon: "speed", tint: ResourcesTheme.blue, label: "Overview" },
                 { id: "processes", icon: "format_list_bulleted", tint: ResourcesTheme.warm, label: "Processes" },
                 { id: "agents", icon: "auto_awesome", tint: ResourcesTheme.purple, label: "Agents" },
-                { id: "dev", icon: "terminal", tint: ResourcesTheme.ok, label: "Dev" }
+                { id: "dev", icon: "terminal", tint: ResourcesTheme.ok, label: "Dev" },
+                { id: "system", icon: "memory", tint: ResourcesTheme.teal, label: "System" }
             ]
             onPicked: id => current = id
         }
@@ -40,7 +41,7 @@ Item {
             Loader {
                 id: page
                 width: flick.width
-                sourceComponent: tabs.current === "processes" ? processes : tabs.current === "agents" ? agents : tabs.current === "dev" ? dev : overview
+                sourceComponent: tabs.current === "processes" ? processes : tabs.current === "agents" ? agents : tabs.current === "dev" ? dev : tabs.current === "system" ? system : overview
             }
         }
     }
@@ -83,5 +84,9 @@ Item {
     Component {
         id: dev
         DevTab {}
+    }
+    Component {
+        id: system
+        SystemTab {}
     }
 }

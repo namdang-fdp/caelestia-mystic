@@ -10,6 +10,7 @@ Card {
     property string detail
     property var values: []
     property color tint: ResourcesTheme.ok
+    property real ceiling: 100
 
     trailing: value
 
@@ -18,6 +19,7 @@ Card {
         Layout.preferredHeight: 36
         values: root.values
         tint: root.tint
+        ceiling: root.ceiling
     }
     Text {
         visible: root.detail !== ""
