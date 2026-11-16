@@ -11,6 +11,12 @@ import time
 from pathlib import Path
 
 DELETED = " (deleted)"
+# Reading smaps_rollup costs ~10x the rest of the sample, and a few dozen big processes hold ~90% of
+# the RAM, so smaller ones fall back to RSS.
+PSS_MIN_RSS_KB = 20480
+# Even those are re-read only this often (plus a per-pid offset so they do not all expire together);
+# between reads the cached value is reused.
+PSS_TTL_S = 10
 
 
 def _read(path: Path) -> str:
@@ -62,7 +68,10 @@ def _uptime(proc: Path) -> float:
         return 0.0
 
 
-def read_processes(proc: Path, clk_tck: int = None, with_pss: bool = True) -> list:
+def read_processes(proc: Path, clk_tck: int = None, with_pss: bool = True, pss_min_rss_kb: int = PSS_MIN_RSS_KB,
+                   pss_cache: dict = None, now: float = None, pss_ttl_s: float = PSS_TTL_S) -> list:
+    """pss_cache maps "pid:starttime" -> [read_at, pss_kb]; it is filled in place."""
+    now = time.time() if now is None else now
     clk_tck = clk_tck or os.sysconf("SC_CLK_TCK")
     uptime = _uptime(proc)
     found = []
@@ -83,11 +92,18 @@ def read_processes(proc: Path, clk_tck: int = None, with_pss: bool = True) -> li
         except OSError:
             pass
         pss = 0
-        if with_pss:
-            try:
-                pss = _kb_fields(_read(entry / "smaps_rollup")).get("Pss", 0)
-            except OSError:
-                pass
+        if with_pss and status.get("VmRSS", 0) >= pss_min_rss_kb:
+            key = f"{entry.name}:{start}"
+            hit = pss_cache.get(key) if pss_cache is not None else None
+            if hit and now - hit[0] < pss_ttl_s + int(entry.name) % 5:
+                pss = hit[1]
+            else:
+                try:
+                    pss = _kb_fields(_read(entry / "smaps_rollup")).get("Pss", 0)
+                except OSError:
+                    pass
+                if pss_cache is not None:
+                    pss_cache[key] = [now, pss]
         exe = _link(entry / "exe")
         if exe.endswith(DELETED):
             exe = exe[: -len(DELETED)]
@@ -96,7 +112,7 @@ def read_processes(proc: Path, clk_tck: int = None, with_pss: bool = True) -> li
         if orphan:
             cwd = cwd[: -len(DELETED)]
         found.append({
-            "pid": int(entry.name), "name": comm, "exe": exe,
+            "pid": int(entry.name), "start": start, "name": comm, "exe": exe,
             "rss_kb": status.get("VmRSS", 0), "pss_kb": pss, "ticks": ticks,
             "age_s": max(0.0, uptime - start / clk_tck), "cwd": cwd, "orphan": orphan,
         })
@@ -135,14 +151,19 @@ def _cpu_times(proc: Path):
     return sum(parts), parts[3] + (parts[4] if len(parts) > 4 else 0)
 
 
-def collect(proc: Path = Path("/proc"), interval: float = 0.3, sleep=time.sleep, clk_tck: int = None) -> dict:
+def collect(proc: Path = Path("/proc"), interval: float = 0.3, sleep=time.sleep, clk_tck: int = None,
+            pss_min_rss_kb: int = PSS_MIN_RSS_KB, pss_cache: dict = None, now: float = None) -> dict:
     clk_tck = clk_tck or os.sysconf("SC_CLK_TCK")
     before = read_processes(proc, clk_tck, with_pss=False)
     total0, idle0 = _cpu_times(proc)
     t0 = time.monotonic()
     sleep(interval)
     dt = time.monotonic() - t0
-    after = read_processes(proc, clk_tck)
+    after = read_processes(proc, clk_tck, pss_min_rss_kb=pss_min_rss_kb, pss_cache=pss_cache, now=now)
+    if pss_cache is not None:
+        live = {f"{p['pid']}:{p['start']}" for p in after}
+        for key in [k for k in pss_cache if k not in live]:
+            del pss_cache[key]
     total1, idle1 = _cpu_times(proc)
 
     cpu = cpu_percent({p["pid"]: p["ticks"] for p in before}, {p["pid"]: p["ticks"] for p in after}, dt, clk_tck)
@@ -190,7 +211,18 @@ def main(argv=None) -> int:
     parser.add_argument("--table", action="store_true")
     parser.add_argument("--interval", type=float, default=0.3)
     args = parser.parse_args(argv)
-    data = collect(interval=args.interval)
+    cache_path = Path(os.environ.get("XDG_RUNTIME_DIR") or "/tmp") / "caelestia-proc-top.json"
+    try:
+        cache = json.loads(cache_path.read_text())
+    except (OSError, ValueError):
+        cache = {}
+    data = collect(interval=args.interval, pss_cache=cache)
+    try:
+        tmp = cache_path.with_suffix(".tmp")
+        tmp.write_text(json.dumps(cache))
+        os.replace(tmp, cache_path)
+    except OSError:
+        pass
     print(_table(data) if args.table else json.dumps(data))
     return 0
 

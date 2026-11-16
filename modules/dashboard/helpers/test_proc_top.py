@@ -55,10 +55,46 @@ class ProcTests(unittest.TestCase):
     def test_process_fields_from_fake_tree(self):
         self.add(42, "claude", rss=200, pss=150, exe="/opt/app/claude", cwd="/home/u/proj",
                  utime=30, stime=20, start=50000)
-        (p,) = top.read_processes(self.proc, clk_tck=CLK)
+        (p,) = top.read_processes(self.proc, clk_tck=CLK, pss_min_rss_kb=0)
         self.assertEqual((p["pid"], p["name"], p["exe"], p["cwd"]), (42, "claude", "/opt/app/claude", "/home/u/proj"))
         self.assertEqual((p["rss_kb"], p["pss_kb"], p["ticks"], p["orphan"]), (200, 150, 50, False))
         self.assertAlmostEqual(p["age_s"], 1000 - 500)
+
+    def test_small_processes_skip_the_expensive_pss_read(self):
+        # smaps_rollup dominates the helper's CPU; only processes with a sizeable RSS are worth it.
+        self.add(20, "tiny", rss=100, pss=999)
+        self.add(21, "big", rss=50000, pss=40000)
+        procs = {p["pid"]: p for p in top.read_processes(self.proc, clk_tck=CLK)}
+        self.assertEqual(procs[20]["pss_kb"], 0)
+        self.assertEqual(procs[21]["pss_kb"], 40000)
+
+    def test_pss_cache_reuses_fresh_value_and_refreshes_stale(self):
+        d = self.add(30, "big", rss=50000, pss=40000, start=100)
+        cache = {}
+        first = top.read_processes(self.proc, clk_tck=CLK, pss_cache=cache, now=1000.0)[0]
+        self.assertEqual(first["pss_kb"], 40000)
+        (d / "smaps_rollup").write_text("Pss:   1 kB\n")
+        fresh = top.read_processes(self.proc, clk_tck=CLK, pss_cache=cache, now=1003.0)[0]
+        self.assertEqual(fresh["pss_kb"], 40000)
+        stale = top.read_processes(self.proc, clk_tck=CLK, pss_cache=cache, now=1030.0)[0]
+        self.assertEqual(stale["pss_kb"], 1)
+
+    def test_pss_cache_is_not_reused_for_a_recycled_pid(self):
+        d = self.add(31, "big", rss=50000, pss=40000, start=100)
+        cache = {}
+        top.read_processes(self.proc, clk_tck=CLK, pss_cache=cache, now=1000.0)
+        for f in d.iterdir():
+            f.unlink()
+        d.rmdir()
+        self.add(31, "other", rss=50000, pss=5, start=999)
+        (p,) = top.read_processes(self.proc, clk_tck=CLK, pss_cache=cache, now=1001.0)
+        self.assertEqual(p["pss_kb"], 5)
+
+    def test_collect_prunes_cache_of_vanished_processes(self):
+        self.add(32, "gone", rss=50000, pss=40000, start=1)
+        cache = {"999:5": [1000.0, 123]}
+        top.collect(self.proc, interval=0, sleep=lambda s: None, clk_tck=CLK, pss_cache=cache, now=1000.0)
+        self.assertEqual(sorted(cache), ["32:1"])
 
     def test_orphan_when_cwd_target_ends_with_deleted(self):
         self.add(7, "claude", rss=10, cwd="/x/y (deleted)")
@@ -103,7 +139,7 @@ class ProcTests(unittest.TestCase):
         self.add(10, "claude", rss=999, pss=100000, exe="/h/claude-code/claude", cwd="/home/u/a")
         self.add(11, "claude", rss=999, pss=50000, exe="/h/claude-code/claude", cwd="/gone/b (deleted)", start=10000)
         self.add(12, "Isolated Web Co", rss=70000, exe="/opt/zen/zen-bin")
-        out = top.collect(self.proc, interval=0, sleep=lambda s: None, clk_tck=CLK)
+        out = top.collect(self.proc, interval=0, sleep=lambda s: None, clk_tck=CLK, pss_min_rss_kb=0)
         self.assertEqual(out["system"]["total_kb"], 16000000)
         self.assertEqual(out["system"]["used_kb"], 12000000)
         self.assertEqual(out["system"]["swap_used_kb"], 2000000)
