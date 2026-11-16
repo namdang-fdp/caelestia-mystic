@@ -22,7 +22,10 @@ Item {
     property real offsetScale: shouldBeActive ? 0 : 1
 
     // Touching the singleton starts its always-on sampling at shell start.
-    Component.onCompleted: ResourcesHistory.ready
+    Component.onCompleted: {
+        ResourcesHistory.ready;
+        ResourcesAlerts.loaded;
+    }
 
     visible: offsetScale < 1
     anchors.leftMargin: (-implicitWidth - 5) * offsetScale

@@ -102,4 +102,38 @@ ColumnLayout {
         title: "Network"
         trailing: "↓ " + root.rate(NetworkUsage.downloadSpeed) + "   ↑ " + root.rate(NetworkUsage.uploadSpeed)
     }
+
+    Card {
+        Layout.fillWidth: true
+
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 10
+
+            IconTile {
+                icon: "notifications"
+                tint: ResourcesTheme.warm
+            }
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 0
+                Text {
+                    text: "Memory alerts"
+                    color: ResourcesTheme.text
+                    font.family: ResourcesTheme.uiFont
+                    font.pixelSize: 13
+                }
+                Text {
+                    text: "Notify once when memory or swap stays high"
+                    color: ResourcesTheme.textDim
+                    font.family: ResourcesTheme.uiFont
+                    font.pixelSize: 11
+                }
+            }
+            Toggle {
+                checked: ResourcesAlerts.enabled
+                onToggled: ResourcesAlerts.setEnabled(!ResourcesAlerts.enabled)
+            }
+        }
+    }
 }
