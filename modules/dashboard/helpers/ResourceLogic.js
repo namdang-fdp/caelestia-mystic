@@ -72,11 +72,11 @@ function agentRows(claude, sessions, groups, now) {
     return rows;
 }
 
-// True only for a plain pointer resting on the left strip, inside the vertical
-// band: never with a button held (dragging along the edge) or in fullscreen.
-function triggerActive(p) {
+// True only for a plain pointer in the bottom-left corner strip (the mirror of the utilities corner):
+// never with a button held (dragging past the corner) or in fullscreen.
+function cornerActive(p) {
     if (p.pressed || p.fullscreen) return false;
-    return p.x <= p.strip && p.y >= p.bandStart * p.height && p.y <= p.bandEnd * p.height;
+    return p.x <= p.zoneWidth && p.y >= p.height - p.zoneHeight;
 }
 
 function inPanel(x, y, left, width, top, height, slack) {

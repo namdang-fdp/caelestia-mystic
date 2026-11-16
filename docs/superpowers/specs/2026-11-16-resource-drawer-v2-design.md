@@ -144,3 +144,6 @@ the persisted-settings file, wording of banners and status lines, and the tests.
 - Not exercised live: the alert switch click, Docker Stop (would stop real containers), PR rows (no open PRs
   at the time), fullscreen and window-drag. No input injection was available, so UI clicks were driven by a
   temporary in-QML probe that called the same singleton functions the buttons call.
+- After a few days of use the left-edge trigger was changed to the bottom-left corner (the spec's approach B, mirror
+  of the utilities corner): the edge opened by accident too easily. The panel now anchors to the bottom-left and its
+  tab bar moved to the bottom so it stays under the pointer while the content grows upward.

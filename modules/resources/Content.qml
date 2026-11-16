@@ -18,20 +18,6 @@ Item {
         anchors.margins: 20
         spacing: 14
 
-        TabBar {
-            id: tabs
-            Layout.fillWidth: true
-            current: "overview"
-            tabs: [
-                { id: "overview", icon: "speed", tint: ResourcesTheme.blue, label: "Overview" },
-                { id: "processes", icon: "format_list_bulleted", tint: ResourcesTheme.warm, label: "Processes" },
-                { id: "agents", icon: "auto_awesome", tint: ResourcesTheme.purple, label: "Agents" },
-                { id: "dev", icon: "terminal", tint: ResourcesTheme.ok, label: "Dev" },
-                { id: "system", icon: "memory", tint: ResourcesTheme.teal, label: "System" }
-            ]
-            onPicked: id => current = id
-        }
-
         // Only the visible tab exists, so each tab polls only while it is on screen.
         Flickable {
             id: flick
@@ -50,9 +36,23 @@ Item {
                 onLoaded: appear.restart()
 
                 width: flick.width
-                transformOrigin: Item.Top
+                transformOrigin: Item.Bottom
                 sourceComponent: tabs.current === "processes" ? processes : tabs.current === "agents" ? agents : tabs.current === "dev" ? dev : tabs.current === "system" ? system : overview
             }
+        }
+
+        TabBar {
+            id: tabs
+            Layout.fillWidth: true
+            current: "overview"
+            tabs: [
+                { id: "overview", icon: "speed", tint: ResourcesTheme.blue, label: "Overview" },
+                { id: "processes", icon: "format_list_bulleted", tint: ResourcesTheme.warm, label: "Processes" },
+                { id: "agents", icon: "auto_awesome", tint: ResourcesTheme.purple, label: "Agents" },
+                { id: "dev", icon: "terminal", tint: ResourcesTheme.ok, label: "Dev" },
+                { id: "system", icon: "memory", tint: ResourcesTheme.teal, label: "System" }
+            ]
+            onPicked: id => current = id
         }
     }
 
@@ -60,7 +60,7 @@ Item {
     Rectangle {
         visible: ResourcesActions.status !== ""
         anchors.bottom: parent.bottom
-        anchors.bottomMargin: 16
+        anchors.bottomMargin: 76
         anchors.horizontalCenter: parent.horizontalCenter
         implicitWidth: statusText.implicitWidth + 24
         implicitHeight: 28

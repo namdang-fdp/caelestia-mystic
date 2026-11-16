@@ -75,15 +75,17 @@ test('agentRows adds Codex sessions and one aggregate row',()=>{
   {kind:'codex',label:'proj',state:'working',age_s:120,ram_kb:0,orphan:false,aggregate:false,pid:0,start:0},
   {kind:'codex',label:'Codex',state:'',age_s:0,ram_kb:130000,orphan:false,aggregate:true,pid:0,start:0}]);
 });
-test('triggerActive false when pressed, fullscreen, outside band, or x > strip',()=>{
- const base={x:1,y:540,width:1920,height:1080,strip:4,bandStart:0.15,bandEnd:0.85,pressed:false,fullscreen:false};
- assert.equal(c.triggerActive(base),true);
- assert.equal(c.triggerActive({...base,pressed:true}),false);
- assert.equal(c.triggerActive({...base,fullscreen:true}),false);
- assert.equal(c.triggerActive({...base,x:5}),false);
- assert.equal(c.triggerActive({...base,y:100}),false);
- assert.equal(c.triggerActive({...base,y:1000}),false);
- assert.equal(c.triggerActive({...base,y:162}),true);
+test('cornerActive opens only on a plain pointer in the bottom-left corner strip',()=>{
+ const base={x:10,y:1079,width:1920,height:1080,zoneWidth:96,zoneHeight:6,pressed:false,fullscreen:false};
+ assert.equal(c.cornerActive(base),true);
+ assert.equal(c.cornerActive({...base,x:0,y:1074}),true);   // inclusive edges
+ assert.equal(c.cornerActive({...base,x:96}),true);
+ assert.equal(c.cornerActive({...base,x:97}),false);
+ assert.equal(c.cornerActive({...base,y:1073}),false);
+ assert.equal(c.cornerActive({...base,x:1900}),false);      // the bottom-right corner is utilities'
+ assert.equal(c.cornerActive({...base,y:540}),false);       // the left edge no longer opens it
+ assert.equal(c.cornerActive({...base,pressed:true}),false);
+ assert.equal(c.cornerActive({...base,fullscreen:true}),false);
 });
 test('inPanel respects slack',()=>{
  assert.equal(c.inPanel(100,100,0,360,50,500,0),true);

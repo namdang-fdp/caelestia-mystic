@@ -29,7 +29,7 @@ CustomMouseArea {
     }
     function inResourcesArea(x: real, y: real): bool {
         const p = panels.resources;
-        if (Logic.triggerActive({ x: x, y: y, width: width, height: height, strip: p.activationWidth, bandStart: p.bandStart, bandEnd: p.bandEnd, pressed: pressed, fullscreen: fullscreen })) return true;
+        if (Logic.cornerActive({ x: x, y: y, width: width, height: height, zoneWidth: p.activationWidth, zoneHeight: p.activationHeight, pressed: pressed, fullscreen: fullscreen })) return true;
         return p.visible && Logic.inPanel(x, y, borderThickness + p.x, p.width, borderThickness + p.y, p.height, 10);
     }
     function updateResourcesHover(): void {

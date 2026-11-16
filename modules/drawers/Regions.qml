@@ -18,12 +18,12 @@ Region {
     R { panel: root.panels.utilities; enabled: !root.win.hasFullscreen; height: panel.height * (1 - panel.offsetScale) }
     R { panel: root.panels.toasts; enabled: !root.win.hasFullscreen }
     R { panel: root.panels.resources; enabled: !root.win.hasFullscreen }
-    // Thin left-edge strip that opens the resources drawer.
+    // Bottom-left corner strip that opens the resources drawer.
     Region {
         x: 0
-        y: root.win.height * root.panels.resources.bandStart
+        y: root.win.height - root.panels.resources.activationHeight
         width: root.win.hasFullscreen ? 0 : root.panels.resources.activationWidth
-        height: root.win.height * (root.panels.resources.bandEnd - root.panels.resources.bandStart)
+        height: root.win.hasFullscreen ? 0 : root.panels.resources.activationHeight
     }
     Region {
         x: root.win.width - root.panels.utilities.activationWidth

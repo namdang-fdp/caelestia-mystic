@@ -49,9 +49,10 @@ Item {
         id: resources
         screenState: root.screenState
         anchors.left: parent.left
-        // Top fixed (10% down) so the tab bar stays put while the panel grows or shrinks below it.
-        anchors.top: parent.top
-        anchors.topMargin: Math.round(root.height * 0.1)
+        // Bottom-left, above the corner that opens it; it grows upward and its tab bar sits at the bottom, so
+        // the tabs stay under the pointer while the content above changes height.
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: 12
     }
     Toasts.Toasts {
         id: toasts

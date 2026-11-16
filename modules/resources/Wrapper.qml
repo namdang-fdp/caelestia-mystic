@@ -5,7 +5,7 @@ import QtQuick.Effects
 import qs.components
 import qs.services
 
-// Left-edge drawer. Springs in from the left only when screenState.resources is set (see
+// Bottom-left drawer. Springs in from the left only when screenState.resources is set (see
 // Interactions.qml), is as tall as its content (up to 80% of the screen) and springs to the new
 // height when the content changes, like the island.
 Item {
@@ -13,10 +13,10 @@ Item {
 
     required property ScreenState screenState
 
-    // Trigger strip: leftmost px, within this band of the screen height.
-    readonly property int activationWidth: 4
-    readonly property real bandStart: 0.15
-    readonly property real bandEnd: 0.85
+    // Trigger: a thin strip along the bottom edge in the bottom-left corner (the mirror of the
+    // utilities corner at the bottom right).
+    readonly property int activationWidth: 96
+    readonly property int activationHeight: 6
     readonly property int margin: 12
     readonly property int cardWidth: 400
 

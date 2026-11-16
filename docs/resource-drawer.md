@@ -1,7 +1,9 @@
 # Resource drawer
 
-Rest the pointer on the **left edge** of a screen (middle 70% of its height) and a drawer slides in.
-Move away and it slides out. It never opens in fullscreen or while a mouse button is held.
+Rest the pointer in the **bottom-left corner** of a screen (a thin 96 px strip along the bottom edge, the mirror
+of the utilities corner at the bottom right) and a drawer springs in from the left. Move away and it slides out.
+It never opens in fullscreen or while a mouse button is held. The tab bar sits at the bottom of the panel, right
+where the pointer arrives, and stays put while the content above changes height.
 
 Five tabs (macOS-style segmented control):
 
