@@ -203,3 +203,25 @@ test('formatRate picks a readable unit',()=>{
  assert.equal(c.formatRate(-4),'0 B/s');
  assert.equal(c.formatRate(NaN),'0 B/s');
 });
+
+// ---- polish: autoscaled sparklines and pressure label ----
+test('sparkPoints honours a floor so small changes show',()=>{
+ D(c.sparkPoints([50,75,100],100,40,100,50),[{x:0,y:40},{x:50,y:20},{x:100,y:0}]);
+ D(c.sparkPoints([10],10,10,100,50),[{x:10,y:10}]);
+});
+test('autoRange widens a flat series to the minimum span',()=>{
+ D(c.autoRange([60,60,60],10,100),{floor:53.5,ceiling:66.5});
+ D(c.autoRange([],10,100),{floor:0,ceiling:100});
+});
+test('autoRange pads a varied series and stays inside 0..max',()=>{
+ D(c.autoRange([20,80],10,100),{floor:11,ceiling:89});
+ D(c.autoRange([0,0],10,100),{floor:0,ceiling:10});
+ D(c.autoRange([95,100],10,100),{floor:90,ceiling:100});
+});
+test('pressureLabel follows the RAM thresholds',()=>{
+ assert.equal(c.pressureLabel(0.2),'Normal');
+ assert.equal(c.pressureLabel(0.69),'Normal');
+ assert.equal(c.pressureLabel(0.70),'Elevated');
+ assert.equal(c.pressureLabel(0.85),'High');
+ assert.equal(c.pressureLabel(NaN),'Normal');
+});

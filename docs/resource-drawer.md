@@ -13,6 +13,13 @@ Five tabs (macOS-style segmented control):
 | Dev | Listening ports, Docker containers and open pull requests (the island's `DevData`), with Stop for ports and containers |
 | System | GPU clock (not utilisation), disk usage and read/write rates, network history |
 
+Look and motion: a translucent glass panel (lit edge, soft shadow) that is exactly as tall as its content (up to 80%
+of the screen) with its top fixed, so the tab bar never moves. It springs in from the left with a small overshoot,
+springs to the new height when you change tab, and each page eases in. Overview is a bento: a memory ring with the
+pressure level, autoscaled sparklines (so small movements show), CPU and swap side by side, network and the alerts
+switch. For real backdrop blur add a Hyprland layer rule for the `caelestia-drawers` namespace; without it the glass
+is simply translucent.
+
 Safety: every Stop is two-step (first click arms it for 3 s) and goes through `proc_action.py`, which
 re-checks that the process is still the one you saw, is yours, and is not protected (Hyprland, quickshell,
 systemd, pipewire, ...). It only ever sends SIGTERM.

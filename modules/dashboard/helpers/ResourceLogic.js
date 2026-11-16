@@ -118,11 +118,12 @@ function ring(list, value, max) {
     return Array.from(list || []).concat([v]).slice(-max);
 }
 
-function sparkPoints(values, width, height, ceiling) {
+function sparkPoints(values, width, height, ceiling, floor) {
     const list = Array.from(values || []);
-    const top = ceiling > 0 ? ceiling : 100;
+    const low = floor > 0 ? floor : 0;
+    const span = (ceiling > low ? ceiling : 100) - low;
     return list.map((v, i) => {
-        const f = Math.max(0, Math.min(1, (Number.isFinite(v) ? v : 0) / top));
+        const f = Math.max(0, Math.min(1, ((Number.isFinite(v) ? v : 0) - low) / span));
         return { x: list.length === 1 ? width : i * (width / (list.length - 1)), y: height - f * height };
     });
 }
@@ -196,4 +197,31 @@ function formatRate(bytesPerSec) {
     if (bytesPerSec < 1048576) return unit(bytesPerSec / 1024, "KB/s");
     if (bytesPerSec < 1073741824) return unit(bytesPerSec / 1048576, "MB/s");
     return unit(bytesPerSec / 1073741824, "GB/s");
+}
+
+// A y-range that fits the data: padded, at least minSpan wide, never outside 0..hardMax.
+// Lets a steady series still show its small movements.
+function autoRange(values, minSpan, hardMax) {
+    const list = Array.from(values || []).filter(Number.isFinite);
+    if (list.length === 0) return { floor: 0, ceiling: hardMax };
+    let lo = Math.min.apply(null, list);
+    let hi = Math.max.apply(null, list);
+    if (hi - lo < minSpan) {
+        const mid = (lo + hi) / 2;
+        lo = mid - minSpan / 2;
+        hi = mid + minSpan / 2;
+    }
+    const pad = (hi - lo) * 0.15;
+    let floor = Math.max(0, lo - pad);
+    let ceiling = Math.min(hardMax, hi + pad);
+    if (ceiling - floor < minSpan) {
+        if (floor + minSpan <= hardMax) ceiling = floor + minSpan;
+        else floor = Math.max(0, ceiling - minSpan);
+    }
+    return { floor: floor, ceiling: ceiling };
+}
+
+function pressureLabel(fraction) {
+    if (!Number.isFinite(fraction) || fraction < 0.70) return "Normal";
+    return fraction < 0.85 ? "Elevated" : "High";
 }

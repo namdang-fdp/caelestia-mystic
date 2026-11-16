@@ -9,7 +9,11 @@ Item {
     Component.onCompleted: Resources.viewers++
     Component.onDestruction: Resources.viewers--
 
+    implicitHeight: layout.implicitHeight + 40
+
     ColumnLayout {
+        id: layout
+
         anchors.fill: parent
         anchors.margins: 20
         spacing: 14
@@ -33,6 +37,7 @@ Item {
             id: flick
             Layout.fillWidth: true
             Layout.fillHeight: true
+            Layout.preferredHeight: page.implicitHeight
             clip: true
             contentWidth: width
             contentHeight: page.implicitHeight
@@ -40,7 +45,12 @@ Item {
 
             Loader {
                 id: page
+
+                // A new page eases in: fade plus a small springy scale, like the island's content swap.
+                onLoaded: appear.restart()
+
                 width: flick.width
+                transformOrigin: Item.Top
                 sourceComponent: tabs.current === "processes" ? processes : tabs.current === "agents" ? agents : tabs.current === "dev" ? dev : tabs.current === "system" ? system : overview
             }
         }
@@ -64,6 +74,28 @@ Item {
             color: ResourcesTheme.text
             font.family: ResourcesTheme.uiFont
             font.pixelSize: 12
+        }
+    }
+
+    ParallelAnimation {
+        id: appear
+
+        NumberAnimation {
+            target: page
+            property: "opacity"
+            from: 0
+            to: 1
+            duration: 220
+            easing.type: Easing.OutCubic
+        }
+        NumberAnimation {
+            target: page
+            property: "scale"
+            from: 0.97
+            to: 1
+            duration: 320
+            easing.type: Easing.OutBack
+            easing.overshoot: 1.4
         }
     }
 

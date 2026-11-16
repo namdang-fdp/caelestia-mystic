@@ -75,32 +75,161 @@ ColumnLayout {
         }
     }
 
-    MetricCard {
+    // Memory: the headline. A ring, the number, how worried to be, and its recent history.
+    Card {
+        id: memory
+
+        readonly property color tint: ResourcesTheme.tone(Logic.severity("ram", ResourcesHistory.ramFrac))
+        readonly property var range: Logic.autoRange(ResourcesHistory.ram, 6, 100)
+
         Layout.fillWidth: true
-        title: "Memory"
-        value: ResourcesHistory.ready ? Logic.formatKb(ResourcesHistory.usedKb) + " / " + Logic.formatKb(ResourcesHistory.totalKb) : "—"
-        values: ResourcesHistory.ram
-        tint: ResourcesTheme.tone(Logic.severity("ram", ResourcesHistory.ramFrac))
+
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 16
+
+            Item {
+                implicitWidth: 76
+                implicitHeight: 76
+                RingGauge {
+                    anchors.fill: parent
+                    value: ResourcesHistory.ramFrac
+                    tint: memory.tint
+                }
+                Text {
+                    anchors.centerIn: parent
+                    text: Math.round(ResourcesHistory.ramFrac * 100) + "%"
+                    color: ResourcesTheme.text
+                    font.family: ResourcesTheme.uiFont
+                    font.pixelSize: 17
+                    font.weight: Font.DemiBold
+                    font.features: ({"tnum": 1})
+                }
+            }
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 3
+                Text {
+                    text: "Memory"
+                    color: ResourcesTheme.textDim
+                    font.family: ResourcesTheme.uiFont
+                    font.pixelSize: 12
+                    font.weight: Font.Medium
+                }
+                RowLayout {
+                    spacing: 6
+                    Text {
+                        text: ResourcesHistory.ready ? Logic.formatKb(ResourcesHistory.usedKb) : "—"
+                        color: ResourcesTheme.text
+                        font.family: ResourcesTheme.uiFont
+                        font.pixelSize: 26
+                        font.weight: Font.DemiBold
+                        font.features: ({"tnum": 1})
+                    }
+                    Text {
+                        Layout.alignment: Qt.AlignBottom
+                        Layout.bottomMargin: 4
+                        text: ResourcesHistory.ready ? "of " + Logic.formatKb(ResourcesHistory.totalKb) : ""
+                        color: ResourcesTheme.textDim
+                        font.family: ResourcesTheme.uiFont
+                        font.pixelSize: 13
+                        font.features: ({"tnum": 1})
+                    }
+                }
+                RowLayout {
+                    spacing: 6
+                    Rectangle {
+                        implicitWidth: 8
+                        implicitHeight: 8
+                        radius: 4
+                        color: memory.tint
+                    }
+                    Text {
+                        text: Logic.pressureLabel(ResourcesHistory.ramFrac) + " pressure"
+                        color: ResourcesTheme.textDim
+                        font.family: ResourcesTheme.uiFont
+                        font.pixelSize: 12
+                    }
+                }
+            }
+        }
+        Sparkline {
+            Layout.fillWidth: true
+            Layout.preferredHeight: 40
+            values: ResourcesHistory.ram
+            tint: memory.tint
+            floor: memory.range.floor
+            ceiling: memory.range.ceiling
+        }
     }
-    MetricCard {
+
+    // CPU and swap side by side.
+    RowLayout {
         Layout.fillWidth: true
-        title: "CPU"
-        value: Math.round(root.cpuNow) + "%"
-        detail: root.temperature >= 0 ? Math.round(root.temperature) + "°C" : ""
-        values: ResourcesHistory.cpu
-        tint: ResourcesTheme.tone(Logic.severity("cpu", root.cpuNow / 100))
+        spacing: 10
+
+        StatCard {
+            Layout.fillWidth: true
+            Layout.preferredWidth: 1
+            Layout.alignment: Qt.AlignTop
+            title: "CPU"
+            value: Math.round(root.cpuNow) + "%"
+            detail: root.temperature >= 0 ? Math.round(root.temperature) + "°C" : " "
+            values: ResourcesHistory.cpu
+            minSpan: 10
+            tint: ResourcesTheme.tone(Logic.severity("cpu", root.cpuNow / 100))
+        }
+        StatCard {
+            Layout.fillWidth: true
+            Layout.preferredWidth: 1
+            Layout.alignment: Qt.AlignTop
+            title: "Swap"
+            value: ResourcesHistory.ready ? Logic.formatKb(ResourcesHistory.swapUsedKb) : "—"
+            detail: ResourcesHistory.ready ? "of " + Logic.formatKb(ResourcesHistory.swapTotalKb) : " "
+            values: ResourcesHistory.swap
+            minSpan: 4
+            tint: ResourcesTheme.tone(Logic.severity("swap", ResourcesHistory.swapFrac))
+        }
     }
-    MetricCard {
-        Layout.fillWidth: true
-        title: "Swap"
-        value: ResourcesHistory.ready ? Logic.formatKb(ResourcesHistory.swapUsedKb) + " / " + Logic.formatKb(ResourcesHistory.swapTotalKb) : "—"
-        values: ResourcesHistory.swap
-        tint: ResourcesTheme.tone(Logic.severity("swap", ResourcesHistory.swapFrac))
-    }
+
+    // Network: one compact row.
     Card {
         Layout.fillWidth: true
-        title: "Network"
-        trailing: "↓ " + root.rate(NetworkUsage.downloadSpeed) + "   ↑ " + root.rate(NetworkUsage.uploadSpeed)
+
+        RowLayout {
+            Layout.fillWidth: true
+            Text {
+                text: "↓"
+                color: ResourcesTheme.blue
+                font.family: ResourcesTheme.uiFont
+                font.pixelSize: 15
+                font.weight: Font.Bold
+            }
+            Text {
+                text: root.rate(NetworkUsage.downloadSpeed)
+                color: ResourcesTheme.text
+                font.family: ResourcesTheme.uiFont
+                font.pixelSize: 13
+                font.features: ({"tnum": 1})
+            }
+            Item {
+                Layout.fillWidth: true
+            }
+            Text {
+                text: "↑"
+                color: ResourcesTheme.purple
+                font.family: ResourcesTheme.uiFont
+                font.pixelSize: 15
+                font.weight: Font.Bold
+            }
+            Text {
+                text: root.rate(NetworkUsage.uploadSpeed)
+                color: ResourcesTheme.text
+                font.family: ResourcesTheme.uiFont
+                font.pixelSize: 13
+                font.features: ({"tnum": 1})
+            }
+        }
     }
 
     Card {

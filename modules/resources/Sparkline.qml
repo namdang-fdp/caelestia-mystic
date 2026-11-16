@@ -8,11 +8,14 @@ Canvas {
     property var values: []
     property color tint: "#30D158"
     property real ceiling: 100
+    property real floor: 0
 
     implicitHeight: 36
 
     onValuesChanged: requestPaint()
     onTintChanged: requestPaint()
+    onFloorChanged: requestPaint()
+    onCeilingChanged: requestPaint()
     onWidthChanged: requestPaint()
     onHeightChanged: requestPaint()
 
@@ -20,7 +23,7 @@ Canvas {
         const ctx = getContext("2d");
         ctx.reset();
         const inset = 2;
-        const raw = Logic.sparkPoints(root.values, width, height - inset * 2, root.ceiling);
+        const raw = Logic.sparkPoints(root.values, width, height - inset * 2, root.ceiling, root.floor);
         if (raw.length < 2)
             return;
         const pts = raw.map(p => ({ x: p.x, y: p.y + inset }));
