@@ -16,7 +16,7 @@ Item {
     readonly property real bandStart: 0.15
     readonly property real bandEnd: 0.85
     readonly property int margin: 12
-    readonly property int cardWidth: 360
+    readonly property int cardWidth: 400
 
     readonly property bool shouldBeActive: screenState.resources
     property real offsetScale: shouldBeActive ? 0 : 1

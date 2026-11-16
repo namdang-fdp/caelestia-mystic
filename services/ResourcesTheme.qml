@@ -3,19 +3,33 @@ pragma Singleton
 import QtQuick
 import Quickshell
 
-// Fixed, high-contrast palette for the resources drawer. Deliberately not derived
-// from the wallpaper (Colours) so contrast never drifts.
+// Fixed dark macOS palette for the resources drawer. Deliberately not derived from the
+// wallpaper (Colours) so contrast never drifts.
 Singleton {
+    // Surfaces
     readonly property color surface: "#0A0A0A"
-    readonly property color border: "#262626"
-    readonly property color track: "#1F1F1F"
-    readonly property color hover: "#171717"
+    readonly property color card: "#1C1C1E"
+    readonly property color track: "#2C2C2E"
+    readonly property color hover: "#232325"
+    readonly property color border: "#2C2C2E"
+    readonly property color separator: "#38383A"
+
+    // Labels (macOS secondary/tertiary are the same colour at lower alpha)
     readonly property color text: "#FFFFFF"
-    readonly property color textDim: "#A1A1A1"
-    readonly property color ok: "#3DD68C"
-    readonly property color warm: "#F5A623"
-    readonly property color hot: "#FF4D4F"
+    readonly property color textDim: Qt.rgba(235 / 255, 235 / 255, 245 / 255, 0.6)
+    readonly property color textTertiary: Qt.rgba(235 / 255, 235 / 255, 245 / 255, 0.3)
+
+    // System colours
+    readonly property color blue: "#0A84FF"
+    readonly property color ok: "#30D158"
+    readonly property color warm: "#FF9F0A"
+    readonly property color hot: "#FF453A"
+    readonly property color purple: "#BF5AF2"
+    readonly property color teal: "#64D2FF"
+
     readonly property int radius: 12
-    readonly property string uiFont: "Geist"
-    readonly property string numFont: "Maple Mono NF"
+    readonly property int radiusCard: 10
+    readonly property int radiusControl: 6
+    readonly property string uiFont: "Inter Variable"
+    readonly property string numFont: "Inter Variable"
 }

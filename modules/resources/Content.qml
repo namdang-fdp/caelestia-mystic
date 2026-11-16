@@ -14,12 +14,18 @@ Item {
         anchors.margins: 20
         spacing: 16
 
-        Text {
-            text: "Resources"
-            color: ResourcesTheme.text
-            font.family: ResourcesTheme.uiFont
-            font.pixelSize: 16
-            font.weight: Font.DemiBold
+        TabBar {
+            id: tabs
+            Layout.fillWidth: true
+            current: "overview"
+            tabs: [
+                { id: "overview", icon: "speed", tint: ResourcesTheme.blue, label: "Overview" },
+                { id: "processes", icon: "format_list_bulleted", tint: ResourcesTheme.warm, label: "Processes" },
+                { id: "agents", icon: "auto_awesome", tint: ResourcesTheme.purple, label: "Agents" },
+                { id: "dev", icon: "terminal", tint: ResourcesTheme.ok, label: "Dev" },
+                { id: "system", icon: "memory", tint: ResourcesTheme.teal, label: "System" }
+            ]
+            onPicked: id => current = id
         }
 
         Summary {
