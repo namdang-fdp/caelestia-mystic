@@ -14,9 +14,10 @@ Singleton {
     readonly property color border: Qt.rgba(1, 1, 1, 0.18)
     readonly property color separator: Qt.rgba(1, 1, 1, 0.10)
 
-    // Glass panel: a translucent dark fill, a lit edge and a soft top highlight. Real backdrop blur
-    // needs a compositor layer rule; without it the fill is opaque enough to keep text legible.
-    readonly property real glassAlpha: 0.80
+    // Glass panel: a translucent dark fill, a lit edge and a soft top highlight. The backdrop blur comes
+    // from a Hyprland layer rule for the caelestia-drawers namespace (ignore_alpha 0.55, so the card at
+    // this alpha blurs but its soft shadow does not). Without that rule, raise glassAlpha to ~0.8.
+    readonly property real glassAlpha: 0.66
     readonly property color glass: Qt.rgba(16 / 255, 16 / 255, 22 / 255, glassAlpha)
     readonly property color glassHighlight: Qt.rgba(1, 1, 1, 0.07)
 

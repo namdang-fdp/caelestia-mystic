@@ -17,8 +17,9 @@ Look and motion: a translucent glass panel (lit edge, soft shadow) that is exact
 of the screen) with its top fixed, so the tab bar never moves. It springs in from the left with a small overshoot,
 springs to the new height when you change tab, and each page eases in. Overview is a bento: a memory ring with the
 pressure level, autoscaled sparklines (so small movements show), CPU and swap side by side, network and the alerts
-switch. For real backdrop blur add a Hyprland layer rule for the `caelestia-drawers` namespace; without it the glass
-is simply translucent.
+switch. The backdrop blur comes from one Hyprland layer rule in `~/.config/hypr/hyprland/rules.lua`:
+`hl.layer_rule({ match = { namespace = "caelestia-drawers" }, blur = true, ignore_alpha = 0.55 })`.
+Without it the glass is merely translucent; raise `glassAlpha` in `ResourcesTheme.qml` to ~0.8 then.
 
 Safety: every Stop is two-step (first click arms it for 3 s) and goes through `proc_action.py`, which
 re-checks that the process is still the one you saw, is yours, and is not protected (Hyprland, quickshell,
