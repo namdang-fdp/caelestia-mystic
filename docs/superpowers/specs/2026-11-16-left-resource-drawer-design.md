@@ -1,6 +1,6 @@
 # Left-edge Resource Drawer — Design
 
-Date: 2026-11-16 · Repo: `caelestia-mystic` (`~/.config/quickshell/caelestia`) · Status: **awaiting approval, nothing built**
+Date: 2026-11-16 · Repo: `caelestia-mystic` (`~/.config/quickshell/caelestia`) · Status: **built** (see plan `docs/superpowers/plans/2026-11-16-left-resource-drawer.md`)
 
 ## 1. Intent and why
 
@@ -118,13 +118,14 @@ Phase 2 (not in v1 unless the owner says so)
 New: `modules/resources/{Wrapper,Content,...}.qml`, `services/Resources.qml`,
 `modules/dashboard/helpers/{proc_top.py,ResourceLogic.js,test_proc_top.py,test_resources.cjs}`.
 Edited: `modules/drawers/Panels.qml` (add left-anchored panel), `Interactions.qml` (strip
-zone + timers), `ContentWindow.qml` (background/deform wiring, as `utilsBg` does),
-`components/ScreenState.qml` (new `resources` flag).
+zone + timers), `Regions.qml` (input regions for the strip and the panel),
+`components/ScreenState.qml` (new `resources` flag). `ContentWindow.qml` was **not** edited: the
+panel draws its own fixed-palette rounded rectangle instead of joining the wallpaper-tinted blob
+group, which also removed the blob-background risk below. New: `services/ResourcesTheme.qml`.
 
 ## 7. Risks
 
-- `ContentWindow.qml` draws a blob/SDF background per panel; a new panel needs the same
-  treatment and may interact with the border shape. Biggest unknown.
+- ~~`ContentWindow.qml` blob background~~ — avoided (own background, see §6).
 - Bar hover: the bar only disables via `bar.excludedScreens`, which `shell.json` doesn't
   set. Verify the bar no longer appears at the left edge, else it will fight the drawer.
 - Other things living at the left edge (Hyprland edge bindings, window scrollbars) may
@@ -135,3 +136,10 @@ zone + timers), `ContentWindow.qml` (background/deform wiring, as `utilsBg` does
 
 Exact pixel sizes, easing curve, how to wire the new flag if a `Config` key can't be added,
 PSS vs RSS cost on this machine, row interaction details, and the test cases.
+
+## 9. Findings from building it
+
+- Quickshell did not hot-reload this config; `qs -c caelestia kill` then `qs -c caelestia -n -d` loads changes.
+- HDMI-A-1 sits left of eDP-1, so eDP-1's left edge is a monitor seam. The drawer opens there on a
+  dwell of 120 ms or more, and not on a quick crossing (checked).
+- Only the monitor under the pointer opens its drawer (checked).
