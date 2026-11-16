@@ -21,6 +21,9 @@ Item {
     readonly property bool shouldBeActive: screenState.resources
     property real offsetScale: shouldBeActive ? 0 : 1
 
+    // Touching the singleton starts its always-on sampling at shell start.
+    Component.onCompleted: ResourcesHistory.ready
+
     visible: offsetScale < 1
     anchors.leftMargin: (-implicitWidth - 5) * offsetScale
     implicitWidth: cardWidth + margin
