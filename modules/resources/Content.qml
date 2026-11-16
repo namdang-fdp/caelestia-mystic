@@ -21,7 +21,8 @@ Item {
             tabs: [
                 { id: "overview", icon: "speed", tint: ResourcesTheme.blue, label: "Overview" },
                 { id: "processes", icon: "format_list_bulleted", tint: ResourcesTheme.warm, label: "Processes" },
-                { id: "agents", icon: "auto_awesome", tint: ResourcesTheme.purple, label: "Agents" }
+                { id: "agents", icon: "auto_awesome", tint: ResourcesTheme.purple, label: "Agents" },
+                { id: "dev", icon: "terminal", tint: ResourcesTheme.ok, label: "Dev" }
             ]
             onPicked: id => current = id
         }
@@ -39,7 +40,7 @@ Item {
             Loader {
                 id: page
                 width: flick.width
-                sourceComponent: tabs.current === "processes" ? processes : tabs.current === "agents" ? agents : overview
+                sourceComponent: tabs.current === "processes" ? processes : tabs.current === "agents" ? agents : tabs.current === "dev" ? dev : overview
             }
         }
     }
@@ -78,5 +79,9 @@ Item {
     Component {
         id: agents
         AgentList {}
+    }
+    Component {
+        id: dev
+        DevTab {}
     }
 }
