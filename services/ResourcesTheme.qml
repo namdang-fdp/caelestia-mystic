@@ -27,6 +27,11 @@ Singleton {
     readonly property color purple: "#BF5AF2"
     readonly property color teal: "#64D2FF"
 
+    // Colour for a ResourceLogic.severity() level.
+    function tone(level: string): color {
+        return level === "hot" ? hot : level === "warm" ? warm : ok;
+    }
+
     readonly property int radius: 12
     readonly property int radiusCard: 10
     readonly property int radiusControl: 6

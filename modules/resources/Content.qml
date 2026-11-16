@@ -12,7 +12,7 @@ Item {
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: 20
-        spacing: 16
+        spacing: 14
 
         TabBar {
             id: tabs
@@ -21,34 +21,41 @@ Item {
             tabs: [
                 { id: "overview", icon: "speed", tint: ResourcesTheme.blue, label: "Overview" },
                 { id: "processes", icon: "format_list_bulleted", tint: ResourcesTheme.warm, label: "Processes" },
-                { id: "agents", icon: "auto_awesome", tint: ResourcesTheme.purple, label: "Agents" },
-                { id: "dev", icon: "terminal", tint: ResourcesTheme.ok, label: "Dev" },
-                { id: "system", icon: "memory", tint: ResourcesTheme.teal, label: "System" }
+                { id: "agents", icon: "auto_awesome", tint: ResourcesTheme.purple, label: "Agents" }
             ]
             onPicked: id => current = id
         }
 
-        Summary {
+        // Only the visible tab exists, so each tab polls only while it is on screen.
+        Flickable {
+            id: flick
             Layout.fillWidth: true
-        }
-        Rectangle {
-            Layout.fillWidth: true
-            implicitHeight: 1
-            color: ResourcesTheme.border
-        }
-        GroupList {
-            Layout.fillWidth: true
-        }
-        Rectangle {
-            Layout.fillWidth: true
-            implicitHeight: 1
-            color: ResourcesTheme.border
-        }
-        AgentList {
-            Layout.fillWidth: true
-        }
-        Item {
             Layout.fillHeight: true
+            clip: true
+            contentWidth: width
+            contentHeight: page.implicitHeight
+            boundsBehavior: Flickable.StopAtBounds
+
+            Loader {
+                id: page
+                width: flick.width
+                sourceComponent: tabs.current === "processes" ? processes : tabs.current === "agents" ? agents : overview
+            }
         }
+    }
+
+    Component {
+        id: overview
+        Overview {
+            onGoto: tab => tabs.current = tab
+        }
+    }
+    Component {
+        id: processes
+        GroupList {}
+    }
+    Component {
+        id: agents
+        AgentList {}
     }
 }

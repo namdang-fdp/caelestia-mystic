@@ -20,6 +20,10 @@ Singleton {
     // Latest values as fractions 0..1.
     property real ramFrac
     property real swapFrac
+    property real usedKb
+    property real totalKb
+    property real swapUsedKb
+    property real swapTotalKb
     property bool ready
 
     property var cpuPrev: null
@@ -37,6 +41,10 @@ Singleton {
         const cpuNow = Logic.parseCpuStat(statText);
         const ramF = Logic.fraction(mem.total_kb - mem.available_kb, mem.total_kb);
         const swapF = Logic.fraction(mem.swap_total_kb - mem.swap_free_kb, mem.swap_total_kb);
+        usedKb = mem.total_kb - mem.available_kb;
+        totalKb = mem.total_kb;
+        swapUsedKb = mem.swap_total_kb - mem.swap_free_kb;
+        swapTotalKb = mem.swap_total_kb;
         ramFrac = ramF;
         swapFrac = swapF;
         ram = Logic.ring(ram, ramF * 100, maxPoints);
