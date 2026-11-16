@@ -96,6 +96,31 @@ class ProcTests(unittest.TestCase):
         top.collect(self.proc, interval=0, sleep=lambda s: None, clk_tck=CLK, pss_cache=cache, now=1000.0)
         self.assertEqual(sorted(cache), ["32:1"])
 
+    def test_groups_carry_top_five_by_ram_with_own_flag(self):
+        for i in range(7):
+            self.add(40 + i, "app", rss=1000 * (i + 1), pss=1000 * (i + 1), exe="/o/app", start=100 + i)
+        out = top.collect(self.proc, interval=0, sleep=lambda s: None, clk_tck=CLK, pss_min_rss_kb=0)
+        group = {g["name"]: g for g in out["groups"]}["app"]
+        self.assertEqual(group["count"], 7)
+        self.assertEqual([t["pid"] for t in group["top"]], [46, 45, 44, 43, 42])
+        self.assertEqual(sorted(group["top"][0]), ["cpu_percent", "name", "own", "pid", "ram_kb", "start"])
+        self.assertTrue(all(t["own"] for t in group["top"]))
+
+    def test_top_entry_has_start_ticks_for_identity(self):
+        self.add(50, "app", rss=5000, pss=5000, exe="/o/app", start=777)
+        out = top.collect(self.proc, interval=0, sleep=lambda s: None, clk_tck=CLK, pss_min_rss_kb=0)
+        self.assertEqual(out["groups"][0]["top"][0]["start"], 777)
+
+    def test_claude_rows_carry_start(self):
+        self.add(60, "claude", rss=9000, pss=9000, exe="/h/claude", cwd="/h/p", start=4242)
+        out = top.collect(self.proc, interval=0, sleep=lambda s: None, clk_tck=CLK, pss_min_rss_kb=0)
+        self.assertEqual(out["claude"][0]["start"], 4242)
+
+    def test_process_uid_is_the_proc_entry_owner(self):
+        self.add(61, "x", rss=1)
+        (p,) = top.read_processes(self.proc, clk_tck=CLK)
+        self.assertEqual(p["uid"], os.getuid())
+
     def test_orphan_when_cwd_target_ends_with_deleted(self):
         self.add(7, "claude", rss=10, cwd="/x/y (deleted)")
         (p,) = top.read_processes(self.proc, clk_tck=CLK)

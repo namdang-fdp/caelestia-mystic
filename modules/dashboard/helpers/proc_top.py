@@ -104,6 +104,10 @@ def read_processes(proc: Path, clk_tck: int = None, with_pss: bool = True, pss_m
                     pass
                 if pss_cache is not None:
                     pss_cache[key] = [now, pss]
+        try:
+            uid = entry.stat().st_uid
+        except OSError:
+            uid = -1
         exe = _link(entry / "exe")
         if exe.endswith(DELETED):
             exe = exe[: -len(DELETED)]
@@ -112,7 +116,7 @@ def read_processes(proc: Path, clk_tck: int = None, with_pss: bool = True, pss_m
         if orphan:
             cwd = cwd[: -len(DELETED)]
         found.append({
-            "pid": int(entry.name), "start": start, "name": comm, "exe": exe,
+            "pid": int(entry.name), "start": start, "uid": uid, "name": comm, "exe": exe,
             "rss_kb": status.get("VmRSS", 0), "pss_kb": pss, "ticks": ticks,
             "age_s": max(0.0, uptime - start / clk_tck), "cwd": cwd, "orphan": orphan,
         })
@@ -176,13 +180,17 @@ def collect(proc: Path = Path("/proc"), interval: float = 0.3, sleep=time.sleep,
     for p in after:
         name = group_name(p["exe"], p["name"])
         ram = p["pss_kb"] or p["rss_kb"]
-        g = groups.setdefault(name, {"name": name, "ram_kb": 0, "cpu_percent": 0.0, "count": 0})
+        g = groups.setdefault(name, {"name": name, "ram_kb": 0, "cpu_percent": 0.0, "count": 0, "top": []})
         g["ram_kb"] += ram
         g["cpu_percent"] += cpu.get(p["pid"], 0.0)
         g["count"] += 1
+        g["top"].append({"pid": p["pid"], "name": p["name"], "ram_kb": ram, "cpu_percent": cpu.get(p["pid"], 0.0),
+                         "start": p["start"], "own": p["uid"] == os.getuid()})
         if name == "Claude":
             claude.append({"pid": p["pid"], "cwd": p["cwd"], "project": os.path.basename(p["cwd"]),
-                           "age_s": p["age_s"], "ram_kb": ram, "orphan": p["orphan"]})
+                           "age_s": p["age_s"], "ram_kb": ram, "orphan": p["orphan"], "start": p["start"]})
+    for g in groups.values():
+        g["top"] = sorted(g["top"], key=lambda t: (-t["ram_kb"], t["pid"]))[:5]
     return {
         "system": {"total_kb": mem["total_kb"], "used_kb": max(0, mem["total_kb"] - mem["available_kb"]),
                    "swap_total_kb": mem["swap_total_kb"], "swap_used_kb": mem["swap_used_kb"],
