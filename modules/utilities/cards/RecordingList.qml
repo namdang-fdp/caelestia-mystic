@@ -94,7 +94,7 @@ ColumnLayout {
                     date.setMonth(date.getMonth() - 1); // Woe (months start from 0)
                     return qsTr("Recording at %1").arg(Qt.formatDateTime(date, Qt.locale()));
                 }
-                color: Colours.palette.m3onSurfaceVariant
+                color: IslandTheme.palette.m3onSurfaceVariant
                 elide: Text.ElideRight
             }
 
@@ -121,8 +121,8 @@ ColumnLayout {
             IconButton {
                 icon: "delete_forever"
                 type: IconButton.Text
-                label.color: Colours.palette.m3error
-                stateLayer.color: Colours.palette.m3error
+                label.color: IslandTheme.palette.red
+                stateLayer.color: IslandTheme.palette.red
                 onClicked: root.props.recordingConfirmDelete = recording.modelData.path
             }
         }
@@ -168,7 +168,7 @@ ColumnLayout {
                 MaterialIcon {
                     Layout.alignment: Qt.AlignHCenter
                     text: "scan_delete"
-                    color: Colours.palette.m3outline
+                    color: IslandTheme.palette.m3outline
                     fontStyle: Tokens.font.icon.extraLarge
 
                     opacity: root.props.recordingListExpanded ? 1 : 0
@@ -196,7 +196,7 @@ ColumnLayout {
                     MaterialIcon {
                         Layout.alignment: Qt.AlignHCenter
                         text: "scan_delete"
-                        color: Colours.palette.m3outline
+                        color: IslandTheme.palette.m3outline
 
                         opacity: !root.props.recordingListExpanded ? 1 : 0
                         scale: !root.props.recordingListExpanded ? 1 : 0
@@ -219,7 +219,7 @@ ColumnLayout {
 
                     StyledText {
                         text: qsTr("No recordings found")
-                        color: Colours.palette.m3outline
+                        color: IslandTheme.palette.m3outline
                     }
                 }
             }

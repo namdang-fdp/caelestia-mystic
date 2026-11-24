@@ -19,7 +19,7 @@ StyledRect {
     implicitHeight: layout.implicitHeight + layout.anchors.margins * 2
 
     radius: Tokens.rounding.large
-    color: Colours.tPalette.m3surfaceContainer
+    color: IslandTheme.palette.card
 
     ColumnLayout {
         id: layout
@@ -41,7 +41,7 @@ StyledRect {
                 }
 
                 radius: Tokens.rounding.full
-                color: Recorder.running ? Colours.palette.m3secondary : Colours.palette.m3secondaryContainer
+                color: Recorder.running ? IslandTheme.palette.red : IslandTheme.palette.chip
 
                 MaterialIcon {
                     id: icon
@@ -49,7 +49,7 @@ StyledRect {
                     anchors.centerIn: parent
                     anchors.verticalCenterOffset: 1
                     text: "screen_record"
-                    color: Recorder.running ? Colours.palette.m3onSecondary : Colours.palette.m3onSecondaryContainer
+                    color: "#ffffff"
                     fontStyle: Tokens.font.icon.large
                 }
             }
@@ -68,7 +68,7 @@ StyledRect {
                 StyledText {
                     Layout.fillWidth: true
                     text: Recorder.paused ? qsTr("Paused") : Recorder.running ? qsTr("Running...") : qsTr("Ready")
-                    color: Colours.palette.m3onSurfaceVariant
+                    color: IslandTheme.palette.m3onSurfaceVariant
                     font: Tokens.font.body.small
                     elide: Text.ElideRight
                     animate: true
@@ -77,6 +77,10 @@ StyledRect {
 
             SplitButton {
                 disabled: Recorder.running
+                colour: IslandTheme.palette.accent
+                textColour: "#ffffff"
+                disabledColour: IslandTheme.palette.chip
+                disabledTextColour: IslandTheme.palette.m3outline
 
                 active: menuItems.find(m => root.props.recordingMode === m.icon + m.text) ?? menuItems[0]
                 menu.onItemSelected: item => root.props.recordingMode = item.icon + item.text
@@ -183,7 +187,7 @@ StyledRect {
 
             StyledRect {
                 radius: Tokens.rounding.full
-                color: Recorder.paused ? Colours.palette.m3tertiary : Colours.palette.m3error
+                color: Recorder.paused ? IslandTheme.palette.orange : IslandTheme.palette.red
 
                 implicitWidth: recText.implicitWidth + Tokens.padding.medium * 2
                 implicitHeight: recText.implicitHeight + Tokens.padding.large
@@ -194,7 +198,7 @@ StyledRect {
                     anchors.centerIn: parent
                     animate: true
                     text: Recorder.paused ? "PAUSED" : "REC"
-                    color: Recorder.paused ? Colours.palette.m3onTertiary : Colours.palette.m3onError
+                    color: "#ffffff"
                     font: Tokens.font.mono.small
                 }
 
@@ -254,6 +258,10 @@ StyledRect {
                     isToggle: true
                     checked: Recorder.paused
                     type: IconButton.Tonal
+                    activeColour: IslandTheme.palette.orange
+                    activeOnColour: "#ffffff"
+                    inactiveColour: IslandTheme.palette.chip
+                    inactiveOnColour: "#ffffff"
                     font: Tokens.font.icon.medium
                     onClicked: {
                         Recorder.togglePause();
@@ -273,8 +281,8 @@ StyledRect {
                     shapeMorph: true
                     isRound: true
                     icon: "stop"
-                    inactiveColour: Colours.palette.m3error
-                    inactiveOnColour: Colours.palette.m3onError
+                    inactiveColour: IslandTheme.palette.red
+                    inactiveOnColour: "#ffffff"
                     font: Tokens.font.icon.medium
                     onClicked: Recorder.stop()
 
