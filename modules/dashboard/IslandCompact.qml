@@ -22,7 +22,8 @@ Item {
     readonly property bool hasActivity: hasMedia || genericAudio
     readonly property bool lyricsReady: restingMode === "lyrics" && hasMedia && Lyrics.hasLyrics
     readonly property string lyric: lyricsReady ? Lyrics.lyrics[Lyrics.indexForTime(player?.position ?? 0)] ?? "" : ""
-    readonly property bool timerChip: IslandTimer.active && activity === "media"
+    // The timer next to music lives in its own bubble (IslandActivityBubble), not as a badge here.
+    readonly property bool timerChip: false
     readonly property var availableModes: ["auto", ...(hasMedia ? ["lyrics"] : []), "stats"]
     readonly property string activity: Logic.currentActivity({ resizing: WindowUx.resizing, warning: IslandHealth.warning, recording: Recorder.running, timerActive: IslandTimer.active, hasAudio: hasActivity, restingMode })
     readonly property string activityLabel: activity === "resize" ? "RESIZE · Esc to finish" : activity === "health" ? IslandHealth.label : activity === "recording" ? `${Recorder.paused ? qsTr("Paused") : "REC"} ${Logic.clock(Recorder.elapsed)}` : activity === "timer" ? `${IslandTimer.paused ? qsTr("Paused") : IslandTimer.label} ${IslandTimer.clock}` : activity === "stats" ? statsLabel : hasMedia ? lyric || `${player.trackTitle} · ${Players.getIdentity(player)}` : IslandAudio.label

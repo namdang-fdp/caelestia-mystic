@@ -14,6 +14,7 @@ My Quickshell rice for Hyprland, built on top of the [caelestia](https://github.
   - Click opens a carousel with a floating dot island underneath: Home, Controls, Media, Timer, Agent, Shelf, Clipboard, Windows, More; turn pages with a two-finger swipe, A/D, ←/→ or the dots
   - Home brings together music, timer, battery/device levels, today's note and a contextual file shelf; Customize saves card visibility and order
   - Tools page (`dynamicIsland open tools`): notes, to-do, world clocks, box breathing, and a Focus tab with Quiet, Presenting, timed Keep awake, eye breaks and a Liquid Glass option
+  - Island pages are grouped in three sections, Now (home, media, timer, agent), Control (controls, windows, more) and Tools (tools, shelf, clipboard), with one set of dots per section. A second running activity (timer, music, recording) slips out as its own bubble beside the notch
   - Clipboard: `@image`/`@link`/`@code`/`@app` search, pause recording, auto-delete after 1 hour / 1 day / 7 days, Copy Stack
   - Shelf tools: zip, convert to PNG/JPEG/WebP, resize and images to PDF (originals are never changed)
   - Media: choose extra buttons (±15 s, shuffle, repeat), fullscreen music show (`musicShow toggle`, five themes) and floating desktop lyrics (`musicShow lyrics`)

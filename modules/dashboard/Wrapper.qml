@@ -49,7 +49,7 @@ Item {
     readonly property int shelfCount: IslandShelf.count
     // Clicking opens these pages as a carousel with page dots. Hovering only
     // peeks at what is happening now: music, a timer, the shelf, or a glance.
-    readonly property var carousel: ["home", "controls", ...(Config.dashboard.showMedia ? ["media"] : []), "timer", "tools", "agent", "shelf", "clipboard", "workspaces", "more"]
+    readonly property var carousel: ["home", ...(Config.dashboard.showMedia ? ["media"] : []), "timer", "agent", "controls", "workspaces", "more", "tools", "shelf", "clipboard"]
     readonly property int carouselIndex: expanded ? carousel.indexOf(page) : -1
     readonly property bool inCarousel: carouselIndex >= 0
     readonly property string nowPage: Logic.activityPage(compact.activity, { shelfPeek, showMedia: Config.dashboard.showMedia, timerActive: IslandTimer.active, shelfCount: IslandShelf.count })
@@ -78,6 +78,8 @@ Item {
     readonly property var trayItems: IslandTray.items
     readonly property bool keepsAwake: IdleInhibitor.enabled
     readonly property string activity: compact.activity
+    // A second running activity gets its own glass bubble beside the notch instead of a badge inside it.
+    readonly property string secondaryActivity: Logic.secondaryActivity({ timerActive: IslandTimer.active, hasAudio: compact.hasActivity, recording: Recorder.running }, compact.activity)
     readonly property string restingMode: compact.restingMode
     readonly property bool basicPage: page === "controls" || page === "media"
     // Pages that draw their own back/title row.
@@ -204,9 +206,9 @@ Item {
     component IslandSpring: SpringAnimation {
         property real motionScale: 1
         property bool growing: true
-        spring: 4 / (motionScale * motionScale)
-        damping: (growing ? .32 : .45) / motionScale
-        epsilon: .25
+        spring: 3.6 / (motionScale * motionScale)
+        damping: (growing ? .42 : .6) / motionScale
+        epsilon: .08
     }
     property bool widthGrowing: true
     property bool heightGrowing: true
@@ -271,6 +273,19 @@ Item {
     Connections {
         target: root.monitor
         function onActiveWorkspaceChanged(): void { Qt.callLater(root.showWorkspaceFeedback); }
+    }
+    // Apps open out of the notch and close back into it: the window slides from or to the top edge
+    // (see animations.lua) while the notch shows who it was.
+    function showWindowFeedback(opened: bool, appClass: string, title: string): void {
+        const entry = DesktopEntries.heuristicLookup(appClass);
+        const name = entry?.name || appClass;
+        const art = Quickshell.iconPath(entry?.icon || appClass.toLowerCase(), "");
+        feedback(opened ? "open_in_new" : "close", name, -1, opened ? qsTr("Opened") : qsTr("Closed"), art, 1500);
+    }
+    Connections {
+        target: Hypr
+        function onWindowOpened(appClass: string, title: string): void { root.showWindowFeedback(true, appClass, title); }
+        function onWindowClosed(appClass: string, title: string): void { root.showWindowFeedback(false, appClass, title); }
     }
     Connections {
         target: root.brightnessMonitor
@@ -431,7 +446,7 @@ Item {
                 ColumnLayout {
                     Layout.fillWidth: !root.feedbackLevel
                     spacing: 0
-                    IslandText { Layout.fillWidth: true; visible: root.feedbackTrack; text: qsTr("Now playing"); font.pixelSize: 10; color: IslandTheme.palette.m3onSurfaceVariant }
+                    IslandText { Layout.fillWidth: true; visible: root.feedbackTrack && root.transientIcon === "music_note"; text: qsTr("Now playing"); font.pixelSize: 10; color: IslandTheme.palette.m3onSurfaceVariant }
                     IslandText {
                         id: feedbackTitle
                         Layout.fillWidth: true
@@ -492,18 +507,18 @@ Item {
                 PropertyAction { target: animatedContent; property: "scale"; value: root.slideFrom ? 1 : .94 }
                 PropertyAction { target: animatedContent; property: "blur"; value: root.motionScale > 0 ? .5 : 0 }
                 PropertyAction { target: slide; property: "x"; value: root.slideFrom }
-                PauseAnimation { duration: 60 * root.motionScale }
+                PauseAnimation { duration: 40 * root.motionScale }
                 ParallelAnimation {
-                    NumberAnimation { target: animatedContent; property: "opacity"; to: 1; duration: 220 * root.motionScale; easing.type: Easing.OutCubic }
-                    NumberAnimation { target: animatedContent; property: "scale"; to: 1; duration: 340 * root.motionScale; easing.type: Easing.OutBack; easing.overshoot: 1.2 }
-                    NumberAnimation { target: animatedContent; property: "blur"; to: 0; duration: 260 * root.motionScale; easing.type: Easing.OutCubic }
-                    NumberAnimation { target: slide; property: "x"; to: 0; duration: 300 * root.motionScale; easing.type: Easing.OutCubic }
+                    NumberAnimation { target: animatedContent; property: "opacity"; to: 1; duration: 260 * root.motionScale; easing.type: Easing.OutCubic }
+                    NumberAnimation { target: animatedContent; property: "scale"; to: 1; duration: 380 * root.motionScale; easing.type: Easing.OutBack; easing.overshoot: .7 }
+                    NumberAnimation { target: animatedContent; property: "blur"; to: 0; duration: 300 * root.motionScale; easing.type: Easing.OutQuad }
+                    NumberAnimation { target: slide; property: "x"; to: 0; duration: 340 * root.motionScale; easing.type: Easing.OutQuart }
                 }
             }
             ParallelAnimation {
                 id: contentExit
-                NumberAnimation { target: animatedContent; property: "opacity"; to: 0; duration: 100 * root.motionScale; easing.type: Easing.OutCubic }
-                NumberAnimation { target: animatedContent; property: "scale"; to: .96; duration: 120 * root.motionScale; easing.type: Easing.OutCubic }
+                NumberAnimation { target: animatedContent; property: "opacity"; to: 0; duration: 120 * root.motionScale; easing.type: Easing.InOutQuad }
+                NumberAnimation { target: animatedContent; property: "scale"; to: .96; duration: 140 * root.motionScale; easing.type: Easing.InOutQuad }
                 NumberAnimation { target: animatedContent; property: "blur"; to: 0; duration: 100 * root.motionScale }
             }
             transform: Translate { id: slide }

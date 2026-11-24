@@ -125,3 +125,10 @@ test('glances pick a new direction, never the current one',()=>{
  assert.equal([-1,-.5,0,.5,1].includes(logic.nextGlance(1,.5)),true);
  assert.notEqual(logic.nextGlance(1,.99),1);
 });
+test('a second running activity gets its own bubble, timer first',()=>{
+ assert.equal(logic.secondaryActivity({timerActive:true,hasAudio:true},'media'),'timer');
+ assert.equal(logic.secondaryActivity({timerActive:true,hasAudio:true,recording:true},'recording'),'timer');
+ assert.equal(logic.secondaryActivity({hasAudio:true,recording:true},'recording'),'media');
+ assert.equal(logic.secondaryActivity({timerActive:true},'timer'),'');
+ assert.equal(logic.secondaryActivity({},'idle'),'');
+});

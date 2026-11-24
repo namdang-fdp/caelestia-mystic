@@ -36,11 +36,11 @@ Item {
     opacity: Math.min(1, progress * 1.3)
     Behavior on width {
         enabled: root.motionScale > 0
-        SpringAnimation { spring: 4; damping: .4; epsilon: .25 }
+        SpringAnimation { spring: 4; damping: .5; epsilon: .1 }
     }
     Behavior on progress {
         enabled: root.motionScale > 0
-        SpringAnimation { spring: 4; damping: .42; epsilon: .006 }
+        SpringAnimation { spring: 3.6; damping: .55; epsilon: .004 }
     }
     onNoticeChanged: if (notice) shownNotice = notice
 

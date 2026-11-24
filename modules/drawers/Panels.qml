@@ -45,6 +45,11 @@ Item {
                 return screen.x < chosen.x ? screen : chosen;
             }, null)
     }
+    Dashboard.IslandActivityBubble {
+        id: activityBubble
+        island: dashboard
+        available: dashboard.Config.dashboard.enabled && !root.fullscreen
+    }
     Dashboard.Wrapper {
         id: dashboard
         screenState: root.screenState

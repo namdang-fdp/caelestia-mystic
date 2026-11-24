@@ -41,6 +41,9 @@ Singleton {
     property string lastSpecialWorkspace: ""
 
     signal configReloaded
+    // A top-level window appeared or went away; `appClass` is its window class.
+    signal windowOpened(string appClass, string title)
+    signal windowClosed(string appClass, string title)
 
     function dispatch(request: string): void {
         Hyprland.dispatch(request);
@@ -129,6 +132,18 @@ Singleton {
             const n = event.name;
             if (n.endsWith("v2"))
                 return;
+
+            if (n === "openwindow") {
+                // openwindow>>address,workspace,class,title
+                const parts = event.data.split(",");
+                if (parts[2])
+                    root.windowOpened(parts[2], parts.slice(3).join(","));
+            } else if (n === "closewindow") {
+                const closing = root.toplevels.values.find(t => t.address === event.data.trim());
+                const cls = closing?.lastIpcObject.class || closing?.wayland?.appId || "";
+                if (cls)
+                    root.windowClosed(cls, closing?.title ?? "");
+            }
 
             if (n === "configreloaded") {
                 root.configReloaded();
