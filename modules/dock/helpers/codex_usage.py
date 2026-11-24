@@ -25,6 +25,10 @@ class NotInstalled(UsageError):
     pass
 
 
+class CodexUnavailable(UsageError):
+    pass
+
+
 def codex_candidates() -> list[Path]:
     home = Path.home()
     # The ChatGPT desktop app bundles its own CLI
@@ -33,14 +37,11 @@ def codex_candidates() -> list[Path]:
             Path("/usr/lib/chatgpt/resources/codex")]
 
 
-def find_codex() -> str | None:
-    found = shutil.which("codex")
-    if found:
-        return found
-    for candidate in codex_candidates():
-        if candidate.is_file() and os.access(candidate, os.X_OK):
-            return str(candidate)
-    return None
+def find_codex_executables() -> list[str]:
+    path_match = shutil.which("codex")
+    candidates = ([Path(path_match)] if path_match else []) + codex_candidates()
+    return list(dict.fromkeys(str(path) for path in candidates
+                              if path.is_file() and os.access(path, os.X_OK)))
 
 
 def rpc_error(error) -> str:
@@ -69,7 +70,7 @@ def read_response(fd: int, request_id: int, timeout: float) -> dict:
                 continue
             chunk = os.read(fd, 65536)
             if not chunk:
-                raise UsageError("Codex exited before reporting usage")
+                raise CodexUnavailable("Codex exited before reporting usage")
             buffer += chunk
             *lines, buffer = buffer.split(b"\n")
             for line in lines:
@@ -87,27 +88,40 @@ def read_response(fd: int, request_id: int, timeout: float) -> dict:
 
 
 def request_rate_limits() -> dict:
-    codex = find_codex()
-    if codex is None:
+    candidates = find_codex_executables()
+    if not candidates:
         raise NotInstalled("Codex CLI is not installed")
 
+    first_error = None
+    for codex in candidates:
+        try:
+            return request_rate_limits_from(codex)
+        except CodexUnavailable as exc:
+            # An executable launcher can still depend on a missing runtime.
+            if first_error is None:
+                first_error = exc
+    raise first_error
+
+
+def request_rate_limits_from(codex: str) -> dict:
     try:
         process = subprocess.Popen([codex, "app-server", "--stdio"], stdin=subprocess.PIPE,
-                                   stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+                                   stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, bufsize=0)
     except OSError as exc:
-        raise UsageError("Unable to start Codex") from exc
+        raise CodexUnavailable("Unable to start Codex") from exc
 
-    try:
-        for message in ({"method": "initialize", "id": 1, "params": {"clientInfo": CLIENT_INFO}},
-                        {"method": "initialized"},
-                        {"method": "account/rateLimits/read", "id": 2}):
-            process.stdin.write((json.dumps(message) + "\n").encode())
-        process.stdin.flush()
+    with process:
+        try:
+            for message in ({"method": "initialize", "id": 1, "params": {"clientInfo": CLIENT_INFO}},
+                            {"method": "initialized"},
+                            {"method": "account/rateLimits/read", "id": 2}):
+                process.stdin.write((json.dumps(message) + "\n").encode())
 
-        return read_response(process.stdout.fileno(), 2, TIMEOUT_SECONDS)
-    finally:
-        process.kill()
-        process.wait()
+            return read_response(process.stdout.fileno(), 2, TIMEOUT_SECONDS)
+        except BrokenPipeError as exc:
+            raise CodexUnavailable("Codex exited before reporting usage") from exc
+        finally:
+            process.kill()
 
 
 def percent(value) -> float | None:
