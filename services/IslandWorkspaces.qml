@@ -9,6 +9,21 @@ Singleton {
     readonly property var overviewWindows: Hypr.toplevels.values.filter(t => (t.workspace?.id > 0 || canonicalSpecialName(t.workspace?.name ?? "") !== null) && t.lastIpcObject.mapped !== false && !t.lastIpcObject.hidden)
     readonly property var windows: overviewWindows.filter(t => t.workspace?.id > 0)
     readonly property var specialWindows: overviewWindows.filter(t => canonicalSpecialName(t.workspace?.name ?? "") !== null)
+    readonly property var appsByWorkspace: {
+        const groups = new Map();
+        for (const window of overviewWindows) {
+            const workspace = window?.workspace;
+            if (!workspace) continue;
+            const special = canonicalSpecialName(workspace.name ?? "");
+            if (workspace.id <= 0 && special === null) continue;
+            const key = workspace.id > 0 ? workspace.id : fullSpecialName(special);
+            const app = Dock.keyFor(window);
+            if (!app) continue;
+            if (!groups.has(key)) groups.set(key, new Set());
+            groups.get(key).add(app);
+        }
+        return new Map(Array.from(groups, ([key, apps]) => [key, Array.from(apps).sort()]));
+    }
     readonly property var specialNames: {
         const names = ["", "todo", "music", "communication", "sysmon"];
         for (const workspace of Hypr.workspaces.values) {
@@ -40,6 +55,7 @@ Singleton {
     onOverviewViewersChanged: if (overviewViewers === 0) windowAddresses = overviewWindows.map(addressOf)
     function addressOf(client: var): string { return client?.address || client?.lastIpcObject.address || ""; }
     function windowFor(address: string): var { return overviewWindows.find(t => addressOf(t) === address) ?? null; }
+    function appsFor(workspace: var): var { return appsByWorkspace.get(workspace) ?? []; }
     function canonicalSpecialName(fullName: string): var {
         if (!fullName.startsWith("special:")) return null;
         const name = fullName.slice(8);
