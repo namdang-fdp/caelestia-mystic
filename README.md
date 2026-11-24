@@ -18,7 +18,10 @@ My Quickshell rice for Hyprland, built on top of the [caelestia](https://github.
   - Shelf tools: zip, convert to PNG/JPEG/WebP, resize and images to PDF (originals are never changed)
   - Media: choose extra buttons (±15 s, shuffle, repeat), fullscreen music show (`musicShow toggle`, five themes) and floating desktop lyrics (`musicShow lyrics`)
   - Pin the island open from the dot island; scroll over the dots to turn pages; drag cards to reorder Home
-  - Agent: live status of Claude Code (hooks) and Codex (read from its logs) on the notch (working, needs you, done), plus a page with sessions, local 5-hour usage estimates and a 7-day chart; install or remove the Claude Code hooks from that page (`dynamicIsland open agent`)
+  - Agent approvals: when Claude Code asks for permission, the Agent page shows the tool and what it wants to do with Allow/Deny (questions are never answered for you) and a button that jumps to the session's window. While a request waits, the tool name and a one-line summary are kept in a private (0600) state file; they are dropped as soon as the state changes
+  - Dev tab (Tools): open pull requests with CI/review state and pills when CI fails, passes or a PR is merged; listening ports of your own processes (stop with a confirm) and Docker containers; time per project from agent transcripts and a standup draft that goes to Notes. Mochi shows your level and commit streak, worries about red CI and celebrates merges
+  - Long commands: `shell-hook.zsh` reports commands that ran 30 s or more (`ISLAND_CMD_THRESHOLD`) as a green or red pill. Install it with `python3 modules/dashboard/helpers/shell_setup.py install` (adds one marked block to ~/.zshrc, backed up first; `uninstall` removes it)
+  - Agent companions slide out beside the Island, one per provider. They show working, waiting for input, and finished states, with dismissible popups for requests and completions. The Agent page still shows sessions, usage estimates, and Claude Code hook setup (`dynamicIsland open agent`)
   - Controls opens an audio device picker with separate Output/Input tabs; microphone mute stays as a small badge while music and other activities remain visible
   - File shelf: drop files on the notch to keep them handy, drag them back out into any app, click to open; it only keeps links, never copies
   - OSD with level bars for volume, brightness and charging; transient pills for Bluetooth devices, workspaces and track changes
@@ -37,6 +40,10 @@ My Quickshell rice for Hyprland, built on top of the [caelestia](https://github.
 - **Utilities panel**: keep awake, screen recorder, quick toggles
 
 ## Dynamic Island
+
+The desktop companions read local 8 × 9 sprite atlases from `${XDG_CONFIG_HOME:-$HOME/.config}/caelestia/agent-pets/`. Use `codex.webp` and `claude.webp` for the two providers. The UI uses a built-in status icon if an atlas is missing. [Codex companion atlas](https://persistent.oaistatic.com/codex/pets/v1/codex-spritesheet-v4.webp) · [Clawd Pixel for personal use](https://github.com/UknownPerson/clawd-pixel-codex-pet#notes)
+
+Codex work and completion come from local session logs. To enable Codex approval notifications, run `python3 modules/dashboard/helpers/agent_setup.py install codex`, then review the new hooks in Codex with `/hooks`.
 
 <p align="center">
   <img src="assets/showcase/island/island-notch.png" alt="Resting notch with the clock and the idle companion" width="480">

@@ -18,7 +18,8 @@ ColumnLayout {
         { id: "todo", icon: "checklist", title: qsTr("To-do"), tint: IslandTheme.palette.blue },
         { id: "clocks", icon: "public", title: qsTr("Clocks"), tint: IslandTheme.palette.teal },
         { id: "breathe", icon: "air", title: qsTr("Breathe"), tint: IslandTheme.palette.green },
-        { id: "focus", icon: "do_not_disturb_on", title: qsTr("Focus"), tint: IslandTheme.palette.purple }
+        { id: "focus", icon: "do_not_disturb_on", title: qsTr("Focus"), tint: IslandTheme.palette.purple },
+        { id: "dev", icon: "terminal", title: qsTr("Dev"), tint: IslandTheme.palette.green }
     ]
     readonly property bool typing: notesArea.activeFocus || todoField.activeFocus
     spacing: 12
@@ -57,7 +58,7 @@ ColumnLayout {
 
     StackLayout {
         Layout.fillWidth: true
-        Layout.preferredHeight: 260
+        Layout.preferredHeight: root.tab === "dev" ? 300 : 260
         currentIndex: root.tabs.findIndex(t => t.id === root.tab)
 
         // Notes
@@ -66,20 +67,35 @@ ColumnLayout {
             color: IslandTheme.palette.card
             border.width: notesArea.activeFocus ? 1.5 : 0
             border.color: Qt.alpha(IslandTheme.palette.orange, .8)
+            // Inset from the card so scrolled lines never run over the rounded
+            // corners or the focus border.
             Flickable {
                 id: notesFlick
-                anchors.fill: parent; anchors.margins: 2
+                anchors.fill: parent; anchors.margins: 6
                 clip: true
                 contentWidth: width
-                contentHeight: notesArea.height
+                // The unstyled TextArea does not report its text height, so use contentHeight.
+                contentHeight: Math.max(height, notesArea.contentHeight + notesArea.topPadding + notesArea.bottomPadding)
                 boundsBehavior: Flickable.StopAtBounds
                 ScrollBar.vertical: ScrollBar {}
+                // Cutting or deleting text can leave the view scrolled past the end.
+                onContentHeightChanged: returnToBounds()
+                function ensureCaretVisible(): void {
+                    const r = notesArea.cursorRectangle;
+                    if (r.y < contentY) contentY = r.y;
+                    else if (r.y + r.height > contentY + height) contentY = r.y + r.height - height;
+                    contentY = Math.max(0, Math.min(contentY, contentHeight - height));
+                }
                 T.TextArea {
                     id: notesArea
                     objectName: "islandNotesArea"
+                    // The editor owns the text once seeded; edits only flow out to the store.
+                    property bool seeded
+                    readonly property int limit: IslandTools.notesLimit
+                    function seed(): void { if (!seeded && IslandTools.loaded) { text = IslandTools.notes; seeded = true; } }
                     width: notesFlick.width
-                    height: Math.max(implicitHeight, notesFlick.height)
-                    padding: 14
+                    height: notesFlick.contentHeight
+                    padding: 8
                     wrapMode: TextEdit.Wrap
                     color: IslandTheme.palette.m3onSurface
                     selectionColor: IslandTheme.palette.accent
@@ -87,14 +103,21 @@ ColumnLayout {
                     font.pixelSize: 14
                     focus: true
                     activeFocusOnPress: true
-                    text: IslandTools.notes
-                    onTextChanged: if (activeFocus) IslandTools.setNotes(text)
-                    onCursorRectangleChanged: {
-                        if (cursorRectangle.y < notesFlick.contentY) notesFlick.contentY = cursorRectangle.y;
-                        else if (cursorRectangle.y + cursorRectangle.height > notesFlick.contentY + notesFlick.height) notesFlick.contentY = cursorRectangle.y + cursorRectangle.height - notesFlick.height;
+                    Component.onCompleted: { seed(); IslandTools.notesViewers++; }
+                    onTextChanged: {
+                        if (!seeded) return;
+                        if (text.length > limit) { text = text.slice(0, limit); return; }
+                        IslandTools.setNotes(text);
                     }
+                    onCursorRectangleChanged: notesFlick.ensureCaretVisible()
                     Accessible.name: qsTr("Notes")
-                    IslandText { visible: !notesArea.text && !notesArea.activeFocus; x: 14; y: 14; text: qsTr("Jot something down. It saves as you type."); font.pixelSize: 14; color: IslandTheme.palette.m3outline }
+                    IslandText { visible: !notesArea.text && !notesArea.activeFocus; x: 8; y: 8; text: qsTr("Jot something down. It saves as you type."); font.pixelSize: 14; color: IslandTheme.palette.m3outline }
+                    Connections {
+                        target: IslandTools
+                        function onLoadedChanged(): void { notesArea.seed(); }
+                        function onNotesInsert(text: string): void { notesArea.insert(0, text); notesFlick.contentY = 0; }
+                    }
+                    Component.onDestruction: IslandTools.notesViewers--
                 }
             }
             Connections {
@@ -268,6 +291,8 @@ ColumnLayout {
             }
             Item { Layout.fillHeight: true }
         }
+        // Dev
+        IslandDevView {}
     }
 
     component FocusTile: IslandButton {

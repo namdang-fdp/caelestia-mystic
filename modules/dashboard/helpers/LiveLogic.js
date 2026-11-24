@@ -59,7 +59,7 @@ var TINTS = {
     grid_view: "indigo", music_note: "pink", alarm: "orange",
     front_hand: "orange", task_alt: "green", download_done: "blue",
     content_copy: "teal", pause_circle: "orange", keyboard_capslock: "orange",
-    wifi: "green", wifi_off: "red", visibility: "green", headphones: "blue",
+    wifi: "green", wifi_off: "red", error: "red", terminal: "green", visibility: "green", headphones: "blue",
     speaker: "blue", mouse: "teal", keyboard: "teal", sports_esports: "purple",
     smartphone: "teal", bluetooth: "blue", lyrics: "pink", schedule: "indigo"
 };

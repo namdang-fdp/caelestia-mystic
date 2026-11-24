@@ -2,7 +2,6 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Effects
 import QtQuick.Layouts
-import QtQuick.Shapes
 import Quickshell
 import Quickshell.Bluetooth
 import Quickshell.Services.UPower
@@ -11,8 +10,8 @@ import Caelestia.Config
 import qs.components
 import qs.services
 import "helpers/ActivityLogic.js" as Logic
-import "helpers/AgentLogic.js" as AgentLogic
 import "helpers/LiveLogic.js" as LiveLogic
+import "helpers/DevLogic.js" as DevLogic
 
 Item {
     id: root
@@ -28,7 +27,10 @@ Item {
     property string transientIcon
     property string transientText
     property string transientDetail
+    property string transientTintKey
     property string transientArt
+    property bool transientCommand
+    property int transientWorkspaceId
     // 0..1 draws an OSD level bar; negative values are text-only feedback.
     property real transientValue: -1
     property bool feedbackReady
@@ -57,7 +59,7 @@ Item {
     readonly property var foreground: pending.length ? pending[pending.length - 1] : null
     readonly property bool showingToast: !!foreground && !expanded
     readonly property bool showingFeedback: feedbackTimer.running && !expanded && !showingToast && !previewOpen
-    readonly property color transientTint: IslandTheme.palette[LiveLogic.iconTint(transientIcon)]
+    readonly property color transientTint: IslandTheme.palette[transientTintKey || LiveLogic.iconTint(transientIcon)]
     readonly property bool feedbackLevel: transientValue >= 0
     readonly property bool feedbackTrack: !!transientArt || transientIcon === "music_note" && !!transientDetail
     readonly property string mode: expanded ? page : showingToast ? "notification" : previewOpen ? "peek" : showingFeedback ? "feedback" : "compact"
@@ -69,6 +71,7 @@ Item {
     readonly property real offsetScale: visible ? 0 : 1
     readonly property real nonAnimHeight: implicitHeight
     readonly property real surfaceRadius: surface.radius
+    readonly property real surfaceEar: surface.ear
     readonly property bool nativeMenuOpen: pane.item?.menuOpen ?? false
     readonly property bool dragging: pane.item?.dragging ?? false
     readonly property string brightnessTarget: pane.item?.monitor?.modelData?.name ?? ""
@@ -84,7 +87,9 @@ Item {
     readonly property real padding: basicPage ? 16 : 20
     readonly property real paneHeight: pane.item?.implicitHeight ?? (page === "controls" ? 286 : page === "media" ? 150 : 304)
     readonly property real pageWidth: ({ home: 560, controls: 424, media: 360, more: 448, info: 540, clipboard: 560, notifications: 480, workspaces: 744, power: 400, wifi: 404, bluetooth: 404, audio: 424, recording: 360, timer: 404, agent: 600, tools: 460, weather: 440, shelf: 420, glance: 340 })[page] ?? 424
-    readonly property real feedbackWidth: feedbackTrack ? 380 : feedbackLevel ? 300 : transientDetail ? 420 : 280
+    readonly property real feedbackWidth: transientCommand ? Math.min(460, 115 + feedbackClock.implicitWidth + feedbackTitle.implicitWidth + feedbackDetail.implicitWidth)
+        : transientWorkspaceId ? 110 + feedbackClock.implicitWidth + feedbackTitle.implicitWidth + feedbackWorkspaceApps.implicitWidth
+        : feedbackTrack ? 380 : feedbackLevel ? 300 : transientDetail ? 460 : 280
     readonly property real targetWidth: expanded || previewOpen ? pageWidth : showingToast ? notificationExpanded ? 480 : 360 : showingFeedback ? feedbackWidth : compact.implicitWidth
     readonly property real targetHeight: expanded || previewOpen ? paneHeight + contentY + 16 + dotsHeight : showingToast ? notification.itemAt(0)?.implicitHeight ?? 76 : showingFeedback ? feedbackTrack ? 60 : 40 : 36
     implicitWidth: Math.min(screen.width - 32, targetWidth)
@@ -125,11 +130,18 @@ Item {
         if (expanded && parentPage(page)) openPage(parentPage(page));
         else close();
     }
-    function feedback(iconName: string, text: string, value = -1, detail = "", art = "", duration = 1400): void {
+    function feedback(iconName: string, text: string, value = -1, detail = "", art = "", duration = 1400, tintKey = "", command = false, workspaceId = 0): void {
         if (!feedbackReady || fullscreen || !Config.dashboard.enabled || Hypr.focusedMonitor !== monitor || expanded || showingToast) return;
-        transientIcon = iconName; transientText = text; transientValue = value; transientDetail = detail; transientArt = art;
+        transientIcon = iconName; transientText = text; transientValue = value; transientDetail = detail; transientArt = art; transientTintKey = tintKey;
+        transientCommand = command;
+        transientWorkspaceId = workspaceId;
         feedbackTimer.interval = duration;
         feedbackTimer.restart();
+    }
+    function showWorkspaceFeedback(): void {
+        const id = monitor?.activeWorkspace?.id ?? 0;
+        if (id > 0)
+            feedback("grid_view", String(id).padStart(2, "0"), -1, "", "", 1400, "", false, id);
     }
     function stepVolume(steps: int): void {
         if (!Audio.sink?.audio || !steps) return;
@@ -202,45 +214,13 @@ Item {
     onTargetHeightChanged: heightGrowing = targetHeight > implicitHeight
     Behavior on implicitWidth { enabled: root.motionScale > 0; IslandSpring { motionScale: root.motionScale; growing: root.widthGrowing } }
     Behavior on implicitHeight { enabled: root.motionScale > 0; IslandSpring { motionScale: root.motionScale; growing: root.heightGrowing } }
-    // Pure black notch hanging from the top edge, like Nusa: square top
-    // corners, concave "ears" joining the screen edge, rounded bottom. Only a
-    // critical notification tints its outline.
-    RectangularShadow {
-        anchors.fill: surface
-        radius: surface.radius
-        blur: 34
-        spread: -12
-        offset.y: 14
-        color: Qt.alpha("black", IslandTools.glass ? .3 : .9)
-    }
-    Item {
+    IslandNotch {
         id: surface
-        readonly property bool critical: root.showingToast && (notification.itemAt(0)?.critical ?? false)
-        property real radius: root.expanded || root.previewOpen ? 30 : root.notificationExpanded ? 26 : root.targetHeight / 2
-        // Ear size follows the corner radius, never taller than the straight side.
-        readonly property real ear: Math.max(0, Math.min(radius * .7, height - radius, 22))
-        readonly property real r: Math.min(radius, width / 2, height)
+        critical: root.showingToast && (notification.itemAt(0)?.critical ?? false)
+        radius: root.expanded || root.previewOpen ? 30 : root.notificationExpanded ? 26 : root.targetHeight / 2
         anchors.fill: parent
         anchors.bottomMargin: root.dotsHeight
         Behavior on radius { enabled: root.motionScale > 0; IslandSpring { motionScale: root.motionScale; growing: false } }
-        Shape {
-            anchors.fill: parent
-            preferredRendererType: Shape.CurveRenderer
-            ShapePath {
-                fillColor: IslandTools.glass ? IslandTheme.palette.glass : IslandTheme.palette.m3surfaceContainer
-                strokeColor: surface.critical ? Qt.alpha(IslandTheme.palette.m3error, .55) : IslandTools.glass ? "#2effffff" : "transparent"
-                strokeWidth: surface.critical || IslandTools.glass ? 1 : 0
-                startX: -surface.ear; startY: 0
-                PathLine { x: surface.width + surface.ear; y: 0 }
-                PathArc { x: surface.width; y: surface.ear; radiusX: surface.ear; radiusY: surface.ear; direction: PathArc.Counterclockwise }
-                PathLine { x: surface.width; y: surface.height - surface.r }
-                PathArc { x: surface.width - surface.r; y: surface.height; radiusX: surface.r; radiusY: surface.r }
-                PathLine { x: surface.r; y: surface.height }
-                PathArc { x: 0; y: surface.height - surface.r; radiusX: surface.r; radiusY: surface.r }
-                PathLine { x: 0; y: surface.ear }
-                PathArc { x: -surface.ear; y: 0; radiusX: surface.ear; radiusY: surface.ear; direction: PathArc.Counterclockwise }
-            }
-        }
     }
     HoverHandler {
         id: hover
@@ -290,7 +270,7 @@ Item {
     }
     Connections {
         target: root.monitor
-        function onActiveWorkspaceChanged(): void { root.feedback("grid_view", qsTr("Workspace %1").arg(root.monitor?.activeWorkspace?.id ?? 1)); }
+        function onActiveWorkspaceChanged(): void { Qt.callLater(root.showWorkspaceFeedback); }
     }
     Connections {
         target: root.brightnessMonitor
@@ -339,17 +319,27 @@ Item {
         }
     }
     Connections {
-        target: IslandTools
-        function onEyeBreak(): void { root.feedback("visibility", qsTr("Eye break"), -1, qsTr("Look at something far away for 20 seconds"), "", 6000); }
+        target: DevCommands
+        function onFinished(code: int, seconds: int, command: string, pid: int): void {
+            const pill = DevLogic.commandPill(code, seconds, command);
+            root.feedback(pill.icon, pill.title, -1, pill.detail, "", 5000, pill.tint, true);
+        }
     }
     Connections {
-        target: AgentState
-        function onWaiting(session: var): void {
-            root.feedback("front_hand", qsTr("Needs your approval"), -1, `${AgentLogic.agentName(session.agent)}${session.project ? ` · ${session.project}` : ""}`, "", 4500);
+        target: DevData
+        function onPullEvent(type: string, pr: var): void {
+            const pill = DevLogic.pullPill({ type: type, pr: pr });
+            root.feedback(pill.icon, pill.title, -1, pill.detail, "", 5000, pill.tint);
         }
-        function onFinished(session: var): void {
-            root.feedback("task_alt", qsTr("Finished"), -1, `${AgentLogic.agentName(session.agent)}${session.project ? ` · ${session.project}` : ""}`, "", 3000);
+        function onStandupReady(text: string): void {
+            IslandTools.addToNotes(text);
+            root.feedback("edit_note", qsTr("Standup added to Notes"), -1, "", "", 2800, "blue");
         }
+        function onFailed(message: string): void { root.feedback("error", message, -1, "", "", 3000, "red"); }
+    }
+    Connections {
+        target: IslandTools
+        function onEyeBreak(): void { root.feedback("visibility", qsTr("Eye break"), -1, qsTr("Look at something far away for 20 seconds"), "", 6000); }
     }
     Connections {
         target: IslandTimer
@@ -417,7 +407,13 @@ Item {
                 anchors.fill: parent
                 anchors.leftMargin: root.feedbackTrack ? 10 : 16; anchors.rightMargin: 16
                 spacing: 10
-                IslandText { visible: !root.feedbackLevel && !root.feedbackTrack; text: Time.timeStr; font.pixelSize: 14; font.weight: Font.DemiBold }
+                IslandText {
+                    id: feedbackClock
+                    visible: !root.feedbackLevel && !root.feedbackTrack
+                    text: Time.timeStr
+                    font.pixelSize: 14
+                    font.weight: Font.DemiBold
+                }
                 Rectangle { visible: !root.feedbackLevel && !root.feedbackTrack; implicitWidth: 1; implicitHeight: 14; color: IslandTheme.palette.divider }
                 ClippingRectangle {
                     visible: root.feedbackTrack
@@ -429,15 +425,32 @@ Item {
                 Rectangle {
                     visible: !root.feedbackTrack
                     implicitWidth: 26; implicitHeight: 26; radius: 13
-                    color: root.transientTint
-                    MaterialIcon { anchors.centerIn: parent; text: root.transientIcon; fill: 1; color: "#ffffff"; fontStyle: Tokens.font.icon.small }
+                    color: root.transientCommand ? Qt.alpha(root.transientTint, 0.16) : root.transientTint
+                    MaterialIcon { anchors.centerIn: parent; text: root.transientIcon; fill: 1; color: root.transientCommand ? root.transientTint : "#ffffff"; fontStyle: Tokens.font.icon.small }
                 }
                 ColumnLayout {
                     Layout.fillWidth: !root.feedbackLevel
                     spacing: 0
                     IslandText { Layout.fillWidth: true; visible: root.feedbackTrack; text: qsTr("Now playing"); font.pixelSize: 10; color: IslandTheme.palette.m3onSurfaceVariant }
-                    IslandText { Layout.fillWidth: true; Layout.minimumWidth: 40; Layout.maximumWidth: root.feedbackLevel ? 96 : 300; text: root.transientText; font.pixelSize: root.feedbackTrack ? 13 : 12; font.weight: root.feedbackTrack ? Font.DemiBold : Font.Normal; elide: Text.ElideRight }
+                    IslandText {
+                        id: feedbackTitle
+                        Layout.fillWidth: true
+                        Layout.minimumWidth: root.transientWorkspaceId ? implicitWidth : 40
+                        Layout.maximumWidth: root.feedbackLevel ? 96 : 300
+                        text: root.transientText
+                        Accessible.name: root.transientWorkspaceId ? qsTr("Workspace %1").arg(root.transientWorkspaceId) : text
+                        font.family: root.transientCommand || root.transientWorkspaceId ? Tokens.font.mono.small.family : IslandTheme.fontFamily
+                        font.pixelSize: root.transientWorkspaceId ? 15 : root.feedbackTrack ? 13 : 12
+                        font.weight: root.transientWorkspaceId || root.feedbackTrack ? Font.DemiBold : Font.Normal
+                        elide: Text.ElideRight
+                    }
                     IslandText { Layout.fillWidth: true; visible: root.feedbackTrack && !!root.transientDetail; text: root.transientDetail; font.pixelSize: 11; color: IslandTheme.palette.m3onSurfaceVariant; elide: Text.ElideRight }
+                }
+                IslandWorkspaceApps {
+                    id: feedbackWorkspaceApps
+                    visible: root.transientWorkspaceId > 0 && apps.length > 0
+                    apps: IslandWorkspaces.appsFor(root.transientWorkspaceId)
+                    iconSize: 18
                 }
                 Rectangle {
                     visible: root.feedbackLevel
@@ -452,8 +465,9 @@ Item {
                     }
                 }
                 IslandText {
+                    id: feedbackDetail
                     visible: root.feedbackLevel || !root.feedbackTrack && !!root.transientDetail
-                    Layout.minimumWidth: root.feedbackLevel ? 34 : 0
+                    Layout.minimumWidth: root.transientCommand ? implicitWidth : root.feedbackLevel ? 34 : 0
                     Layout.maximumWidth: root.feedbackLevel ? 80 : 190
                     elide: Text.ElideMiddle
                     horizontalAlignment: Text.AlignRight
