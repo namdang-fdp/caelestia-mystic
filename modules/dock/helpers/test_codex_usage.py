@@ -1,6 +1,8 @@
 import importlib.util
 import json
 import os
+import sys
+import tempfile
 import threading
 import time
 import unittest
@@ -79,16 +81,42 @@ class FindCodexTests(unittest.TestCase):
         self.assertIn(Path('/usr/lib/chatgpt/resources/codex'), codex.codex_candidates())
 
     def test_path_lookup_wins(self):
-        with patch.object(codex.shutil, 'which', return_value='/opt/bin/codex'):
-            self.assertEqual(codex.find_codex(), '/opt/bin/codex')
+        with tempfile.TemporaryDirectory() as directory:
+            preferred = Path(directory) / 'preferred'
+            bundled = Path(directory) / 'bundled'
+            for launcher in (preferred, bundled):
+                launcher.touch(mode=0o700)
+            with patch.object(codex.shutil, 'which', return_value=str(preferred)), patch.object(
+                codex, 'codex_candidates', return_value=[bundled, preferred]
+            ):
+                self.assertEqual(codex.find_codex_executables(), [str(preferred), str(bundled)])
+
+    def test_falls_back_when_preferred_launcher_exits_early(self):
+        with tempfile.TemporaryDirectory() as directory:
+            preferred = Path(directory) / 'preferred'
+            preferred.write_text('#!/bin/sh\nexit 127\n')
+            bundled = Path(directory) / 'bundled'
+            bundled.write_text(
+                f'#!{sys.executable}\n'
+                'import sys\n'
+                'for _ in range(3):\n'
+                '    sys.stdin.readline()\n'
+                'print(\'{"id": 2, "result": {"rateLimits": {"planType": "plus"}}}\', flush=True)\n'
+            )
+            for launcher in (preferred, bundled):
+                launcher.chmod(0o700)
+            with patch.object(codex.shutil, 'which', return_value=str(preferred)), patch.object(
+                codex, 'codex_candidates', return_value=[bundled]
+            ):
+                self.assertEqual(codex.request_rate_limits(), {'rateLimits': {'planType': 'plus'}})
 
     def test_missing_cli_reports_not_installed(self):
-        with patch.object(codex, 'find_codex', return_value=None):
+        with patch.object(codex, 'find_codex_executables', return_value=[]):
             with self.assertRaisesRegex(codex.NotInstalled, 'not installed'):
                 codex.request_rate_limits()
 
     def test_main_flags_missing_cli(self):
-        with patch.object(codex, 'find_codex', return_value=None), patch('builtins.print') as out:
+        with patch.object(codex, 'find_codex_executables', return_value=[]), patch('builtins.print') as out:
             codex.main()
         output = json.loads(out.call_args.args[0])
         self.assertEqual((output['available'], output['installed']), (False, False))

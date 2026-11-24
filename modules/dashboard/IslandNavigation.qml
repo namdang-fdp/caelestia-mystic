@@ -4,9 +4,11 @@ import QtQuick.Controls
 import Caelestia.Config
 import qs.services
 
-// A small island of its own, floating under the main one. Dots stand for
-// pages; the current page is a longer capsule. Widths settle with a light
-// spring so the capsule feels liquid when pages change.
+// A small island of its own, floating under the main one. Three sections
+// (Now, Control, Tools) sit on the left, the current one expanded with its
+// name; the dots beside them stand for the pages of that section, the current
+// page a longer capsule. Widths settle with a light spring so the capsule
+// feels liquid when pages change.
 Item {
     id: root
     required property var pages
@@ -17,6 +19,13 @@ Item {
     signal pinToggled
     property real wheelRest
     readonly property real motionScale: Tokens.anim.durations.scale
+    readonly property var sections: [
+        { id: "now", label: qsTr("Now"), icon: "bolt", pages: ["home", "media", "timer", "agent"] },
+        { id: "control", label: qsTr("Control"), icon: "tune", pages: ["controls", "workspaces", "more"] },
+        { id: "tools", label: qsTr("Tools"), icon: "build", pages: ["tools", "shelf", "clipboard"] }
+    ]
+    readonly property var current: sections.find(g => g.pages.includes(currentPage)) ?? sections[0]
+    readonly property var sectionPages: current.pages.filter(page => pages.includes(page))
     implicitWidth: pill.width
     implicitHeight: 30
     function pageName(page: string): string {
@@ -25,7 +34,7 @@ Item {
     Rectangle {
         id: pill
         anchors.centerIn: parent
-        width: dots.implicitWidth + 20 + 34
+        width: row.implicitWidth + 16 + 34
         height: 30
         radius: 15
         color: "#e6120f18"
@@ -41,11 +50,39 @@ Item {
             }
         }
         Row {
-            id: dots
+            id: row
             anchors.verticalCenter: parent.verticalCenter
-            x: 10
+            x: 8
+            spacing: 4
             Repeater {
-                model: root.pages
+                model: root.sections
+                IslandButton {
+                    id: section
+                    required property var modelData
+                    readonly property bool here: modelData.id === root.current.id
+                    objectName: "islandSection_" + modelData.id
+                    implicitHeight: 30
+                    leftPadding: here ? 10 : 7; rightPadding: here ? 10 : 7
+                    background: Rectangle {
+                        y: 3
+                        height: 24
+                        radius: 12
+                        color: section.here ? IslandTheme.palette.m3surfaceContainerHighest : section.hovered ? IslandTheme.palette.m3surfaceContainerHigh : "transparent"
+                        Behavior on color { ColorAnimation { duration: 140 * root.motionScale } }
+                    }
+                    iconName: modelData.icon
+                    text: here ? modelData.label : ""
+                    checked: here
+                    Accessible.name: modelData.label
+                    onClicked: if (!here) root.pageRequested(modelData.pages.find(page => root.pages.includes(page)))
+                }
+            }
+            Rectangle { width: 1; height: 14; anchors.verticalCenter: parent.verticalCenter; color: "#33ffffff" }
+            Row {
+                id: dots
+                anchors.verticalCenter: parent.verticalCenter
+                Repeater {
+                model: root.sectionPages
                 IslandButton {
                     id: dot
                     required property string modelData
@@ -64,7 +101,7 @@ Item {
                     ToolTip.delay: 350
                     onClicked: root.pageRequested(modelData)
                     // Overshoots slightly, then settles.
-                    Behavior on width { enabled: root.motionScale > 0; SpringAnimation { spring: 3.2 / (root.motionScale * root.motionScale); damping: .3 / root.motionScale; epsilon: .25 } }
+                    Behavior on width { enabled: root.motionScale > 0; SpringAnimation { spring: 3.2 / (root.motionScale * root.motionScale); damping: .45 / root.motionScale; epsilon: .1 } }
                     contentItem: Item {
                         Rectangle {
                             anchors.centerIn: parent
@@ -73,6 +110,7 @@ Item {
                             Behavior on color { ColorAnimation { duration: 140 * root.motionScale } }
                         }
                     }
+                }
                 }
             }
         }

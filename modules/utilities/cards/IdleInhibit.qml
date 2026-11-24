@@ -4,6 +4,7 @@ import Caelestia.Config
 import qs.components
 import qs.components.controls
 import qs.services
+import qs.modules.dashboard as Dashboard
 
 StyledRect {
     id: root
@@ -14,7 +15,7 @@ StyledRect {
     implicitHeight: nonAnimHeight
 
     radius: Tokens.rounding.large
-    color: Colours.tPalette.m3surfaceContainer
+    color: IslandTheme.palette.card
     clip: true
 
     RowLayout {
@@ -31,14 +32,14 @@ StyledRect {
             implicitHeight: icon.implicitHeight + Tokens.padding.large
 
             radius: Tokens.rounding.full
-            color: IdleInhibitor.enabled ? Colours.palette.m3secondary : Colours.palette.m3secondaryContainer
+            color: IdleInhibitor.enabled ? IslandTheme.palette.accent : IslandTheme.palette.chip
 
             MaterialIcon {
                 id: icon
 
                 anchors.centerIn: parent
                 text: "coffee"
-                color: IdleInhibitor.enabled ? Colours.palette.m3onSecondary : Colours.palette.m3onSecondaryContainer
+                color: "#ffffff"
                 fontStyle: Tokens.font.icon.large
             }
         }
@@ -57,15 +58,16 @@ StyledRect {
             StyledText {
                 Layout.fillWidth: true
                 text: IdleInhibitor.enabled ? qsTr("Preventing sleep mode") : qsTr("Normal power management")
-                color: Colours.palette.m3onSurfaceVariant
+                color: IslandTheme.palette.m3onSurfaceVariant
                 font: Tokens.font.body.small
                 elide: Text.ElideRight
             }
         }
 
-        StyledSwitch {
+        Dashboard.IslandSwitch {
             checked: IdleInhibitor.enabled
-            onToggled: IdleInhibitor.enabled = checked
+            Accessible.name: qsTr("Keep awake")
+            onClicked: IdleInhibitor.enabled = !IdleInhibitor.enabled
         }
     }
 
@@ -89,14 +91,14 @@ StyledRect {
             implicitHeight: activeText.implicitHeight + Tokens.padding.small
 
             radius: Tokens.rounding.full
-            color: Colours.palette.m3primary
+            color: IslandTheme.palette.accent
 
             StyledText {
                 id: activeText
 
                 anchors.centerIn: parent
                 text: qsTr("Active since %1").arg(Qt.formatTime(IdleInhibitor.enabledSince, GlobalConfig.services.useTwelveHourClock ? "hh:mm a" : "hh:mm"))
-                color: Colours.palette.m3onPrimary
+                color: "#ffffff"
                 font: Tokens.font.body.builders.small.size(Math.round(Tokens.font.body.small.pointSize * 0.9)).build()
             }
         }

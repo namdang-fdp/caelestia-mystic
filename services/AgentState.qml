@@ -14,6 +14,7 @@ Singleton {
     readonly property string directory: `${Paths.state}/agents`
     readonly property string hook: Quickshell.shellPath("modules/dashboard/helpers/agent_hook.py")
     readonly property string sessionsHelper: Quickshell.shellPath("modules/dashboard/helpers/agent_sessions.py")
+    readonly property string actionHelper: Quickshell.shellPath("modules/dashboard/helpers/agent_action.py")
     readonly property string setupHelper: Quickshell.shellPath("modules/dashboard/helpers/agent_setup.py")
     readonly property string statsHelper: Quickshell.shellPath("modules/dashboard/helpers/agent_stats.py")
 
@@ -29,6 +30,17 @@ Singleton {
     readonly property int busy: Logic.busyCount(sessions, now)
     readonly property bool hasSessions: live.length > 0
     readonly property bool hasStats: !!(stats.providers?.claude?.available || stats.providers?.codex?.available)
+    property var companionCompleted: []
+    property var companionDismissed: []
+    readonly property var companion: Logic.companionState(live, companionCompleted, companionDismissed)
+
+    function dismissCompanionNotice(notice: var): void {
+        if (!notice) return;
+        if (notice.type === "waiting")
+            companionDismissed = [...companionDismissed, notice.key];
+        else
+            companionCompleted = companionCompleted.filter(session => !notice.keys.includes(Logic.companionDoneKey(session)));
+    }
 
     // Fired when a session starts waiting for approval or finishes its work.
     signal waiting(var session)
@@ -40,6 +52,30 @@ Singleton {
         if (setupProcess.running) return;
         setupProcess.command = ["python3", "-I", setupHelper, action, "claude"];
         setupProcess.running = true;
+    }
+
+    // The first session waiting on a prompt the island may answer (never questions).
+    readonly property var waitingSession: live.find(s => s.state === "waiting") ?? null
+    signal actionFailed(string message)
+    function decide(session: var, behavior: string): void {
+        if (!session?.request || actionProcess.running) return;
+        actionProcess.command = ["python3", "-I", actionHelper, "decide", session.agent, session.session, session.request, behavior];
+        actionProcess.running = true;
+    }
+    function focusSession(session: var): void {
+        if (!session || actionProcess.running) return;
+        actionProcess.command = ["python3", "-I", actionHelper, "focus", session.agent, String(session.pid ?? 0), session.cwd ?? "", session.session ?? ""];
+        actionProcess.running = true;
+    }
+    Process {
+        id: actionProcess
+        stdout: StdioCollector {
+            onStreamFinished: {
+                let error = qsTr("The session window could not be opened");
+                try { error = JSON.parse(text).error || ""; } catch (_) {}
+                if (error) root.actionFailed(error);
+            }
+        }
     }
 
     property var lastStates: ({})
@@ -57,6 +93,9 @@ Singleton {
         const result = Logic.diff(primed ? lastStates : null, next, stamp);
         // The first read after startup only learns the current states.
         if (primed) {
+            const completed = result.events.filter(e => e.type === "done" && Logic.COMPANIONS.includes(e.session.agent)).map(e => e.session);
+            if (IslandTools.agentNotch && completed.length)
+                companionCompleted = [...companionCompleted, ...completed].slice(-40);
             for (const e of result.events) {
                 if (e.type === "waiting") waiting(e.session);
                 else finished(e.session);
@@ -67,6 +106,8 @@ Singleton {
         now = stamp;
         // Skip the model rebuild when nothing relevant changed.
         if (JSON.stringify(next) !== JSON.stringify(sessions)) sessions = next;
+        const dismissed = companionDismissed.filter(key => companion.waitKeys.includes(key));
+        if (dismissed.length !== companionDismissed.length) companionDismissed = dismissed;
     }
 
     Process {

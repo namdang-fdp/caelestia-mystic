@@ -13,6 +13,15 @@ function currentActivity(state) {
     return state.restingMode === "stats" ? "stats" : "idle";
 }
 
+// The next activity worth its own bubble next to the notch: whatever is running besides the one the
+// notch is already showing. Timer first, then music, then a recording.
+function secondaryActivity(state, primary) {
+    if (state.timerActive && primary !== "timer") return "timer";
+    if (state.hasAudio && primary !== "media") return "media";
+    if (state.recording && primary !== "recording") return "recording";
+    return "";
+}
+
 function activityPage(activity, options) {
     if (options.shelfPeek) return "shelf";
     const page = { resize: "workspaces", health: "info", agent: "agent", recording: "recording", timer: "timer", stats: "info" }[activity];

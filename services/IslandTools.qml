@@ -34,7 +34,17 @@ Singleton {
     function setGlass(on: bool): void { if (loaded) adapter.glass = on; }
     readonly property int openTodos: Logic.openCount(adapter.todos)
 
-    function setNotes(text: string): void { if (loaded && text !== adapter.notes) adapter.notes = text.slice(0, 4000); }
+    // Long enough for pasted documents; the editor enforces the same limit itself.
+    readonly property int notesLimit: 50000
+    // Text from elsewhere (the standup draft) goes into the open editor, or straight to the store.
+    property int notesViewers
+    signal notesInsert(string text)
+    function addToNotes(text: string): void {
+        if (!loaded || !text) return;
+        if (notesViewers > 0) notesInsert(text);
+        else adapter.notes = (text + adapter.notes).slice(0, notesLimit);
+    }
+    function setNotes(text: string): void { if (loaded && text !== adapter.notes) adapter.notes = text.slice(0, notesLimit); }
     function addTodo(text: string): void { if (loaded) adapter.todos = Logic.addTodo(adapter.todos, text, Date.now().toString(36) + Math.floor(Math.random() * 1e6).toString(36)); }
     function toggleTodo(id: string): void { if (loaded) adapter.todos = Logic.toggleTodo(adapter.todos, id); }
     function removeTodo(id: string): void { if (loaded) adapter.todos = Logic.removeTodo(adapter.todos, id); }

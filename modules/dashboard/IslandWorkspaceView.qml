@@ -17,6 +17,7 @@ FocusScope {
     readonly property real gap: 8
     readonly property real tileWidth: (width - gap * 2) / 3
     readonly property real tileHeight: tileWidth * 0.56
+    readonly property real headerHeight: 34
     property real layoutTargetWidth: width
     property bool interactiveFocus: true
     property var thumbnailItems: []
@@ -85,6 +86,13 @@ FocusScope {
                     text: tile.workspaceId.toString()
                     color: tile.active ? IslandTheme.palette.m3primary : IslandTheme.palette.m3onSurfaceVariant
                     islandFont: Tokens.font.label.medium
+                }
+                IslandWorkspaceApps {
+                    anchors.top: parent.top
+                    anchors.right: parent.right
+                    anchors.margins: 10
+                    apps: IslandWorkspaces.appsFor(tile.workspaceId)
+                    maximumIcons: tile.width >= 145 ? 4 : tile.width >= 115 ? 3 : 2
                 }
             }
         }

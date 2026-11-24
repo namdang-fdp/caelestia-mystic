@@ -246,10 +246,12 @@ Scope {
             const island = ShellState.componentsForActive()?.panels?.dashboard;
             if (!state || !island)
                 return "{}";
+            const companion = ShellState.componentsForActive()?.panels?.agentCompanion;
             return JSON.stringify({screen: state.modelData.name, expanded: island.expanded,
                 visible: island.visible, preview: island.previewOpen, tab: state.dashboardTab,
                 page: island.page, mode: island.mode, notificationExpanded: island.notificationExpanded,
                 activity: island.activity, restingMode: island.restingMode,
+                agentCompanion: { visible: companion?.visible ?? false, count: companion?.petCount ?? 0, notice: companion?.showNotice ? companion.notice.type : "" },
                 timer: {active: IslandTimer.active, paused: IslandTimer.paused, remaining: IslandTimer.clock, phase: IslandTimer.phase},
                 resizeMode: WindowUx.resizing, fontFamily: IslandTheme.fontFamily,
                 hovered: island.hovered, previewAllowed: island.previewAllowed,

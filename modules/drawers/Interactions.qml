@@ -4,6 +4,7 @@ import Quickshell
 import Caelestia.Config
 import qs.components
 import qs.components.controls
+import "../dashboard/helpers/ResourceLogic.js" as Logic
 
 CustomMouseArea {
     id: root
@@ -25,6 +26,34 @@ CustomMouseArea {
     function inUtilitiesArea(x: real, y: real): bool {
         const corner = x >= width - panels.utilities.activationWidth && y >= height - panels.utilities.activationHeight;
         return Config.utilities.enabled && (corner || panels.utilities.visible && inBottomPanel(panels.utilities, x, y, true));
+    }
+    function inResourcesArea(x: real, y: real): bool {
+        const p = panels.resources;
+        if (Logic.cornerActive({ x: x, y: y, width: width, height: height, zoneWidth: p.activationWidth, zoneHeight: p.activationHeight, pressed: pressed, fullscreen: fullscreen })) return true;
+        return p.visible && Logic.inPanel(x, y, borderThickness + p.x, p.width, borderThickness + p.y, p.height, 10);
+    }
+    function updateResourcesHover(): void {
+        if (fullscreen) return;
+        const show = inResourcesArea(mouseX, mouseY);
+        if (!show) resourcesEnterTimer.stop();
+        if (show) {
+            resourcesLeaveTimer.stop();
+            if (!screenState.resources && !resourcesEnterTimer.running) resourcesEnterTimer.start();
+        } else if (screenState.resources && !resourcesLeaveTimer.running) resourcesLeaveTimer.start();
+    }
+    Timer {
+        id: resourcesEnterTimer
+        interval: 120
+        onTriggered: {
+            if (!root.fullscreen && root.containsMouse && root.inResourcesArea(root.mouseX, root.mouseY)) root.screenState.resources = true;
+        }
+    }
+    Timer {
+        id: resourcesLeaveTimer
+        interval: 250
+        onTriggered: {
+            if (!(root.containsMouse && root.inResourcesArea(root.mouseX, root.mouseY))) root.screenState.resources = false;
+        }
     }
     function updateUtilitiesHover(): void {
         if (fullscreen) return;
@@ -55,9 +84,14 @@ CustomMouseArea {
     acceptedButtons: fullscreen ? Qt.NoButton : Qt.AllButtons
     hoverEnabled: true
     onPressed: event => dragStart = Qt.point(event.x, event.y)
-    onEntered: updateUtilitiesHover()
+    onEntered: {
+        updateUtilitiesHover();
+        updateResourcesHover();
+    }
     onContainsMouseChanged: {
         if (!containsMouse) {
+            resourcesEnterTimer.stop();
+            resourcesLeaveTimer.restart();
             utilitiesEnterTimer.stop();
             if (!utilitiesShortcutActive) utilitiesLeaveTimer.restart();
         }
@@ -71,6 +105,7 @@ CustomMouseArea {
             else if (event.y - dragStart.y > Config.launcher.dragThreshold) screenState.launcher = false;
         }
         updateUtilitiesHover();
+        updateResourcesHover();
     }
     Connections {
         target: root.screenState

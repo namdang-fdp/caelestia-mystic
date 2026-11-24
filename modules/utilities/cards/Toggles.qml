@@ -41,7 +41,7 @@ StyledRect {
     implicitHeight: layout.implicitHeight + Tokens.padding.extraLargeIncreased
 
     radius: Tokens.rounding.large
-    color: Colours.tPalette.m3surfaceContainer
+    color: IslandTheme.palette.card
 
     ColumnLayout {
         id: layout
@@ -113,7 +113,7 @@ StyledRect {
                     roleValue: "settings"
                     delegate: Toggle {
                         icon: "settings"
-                        inactiveOnColour: Colours.palette.m3onSurfaceVariant
+                        inactiveOnColour: IslandTheme.palette.m3onSurfaceVariant
                         isToggle: false
                         onClicked: {
                             root.screenState.utilities = false;
@@ -144,7 +144,7 @@ StyledRect {
                         checked: VPN.connected && VPN.status.state !== "needs-auth" && VPN.status.state !== "error"
                         enabled: !VPN.connecting
                         isToggle: VPN.status.state !== "needs-auth" && VPN.status.state !== "error"
-                        inactiveOnColour: Colours.palette.m3onSurfaceVariant
+                        inactiveOnColour: IslandTheme.palette.m3onSurfaceVariant
                         onClicked: VPN.toggle()
                     }
                 }
@@ -153,7 +153,10 @@ StyledRect {
     }
 
     component Toggle: IconButton {
-        inactiveColour: Colours.layer(Colours.palette.m3surfaceContainerHighest, 2)
+        inactiveColour: IslandTheme.palette.chip
+        activeColour: IslandTheme.palette.accent
+        inactiveOnColour: "#ffffff"
+        activeOnColour: "#ffffff"
         fillWidth: true
         isToggle: true
         isRound: true

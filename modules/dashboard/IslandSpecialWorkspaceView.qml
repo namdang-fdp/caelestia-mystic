@@ -97,6 +97,11 @@ FocusScope {
                         islandFont: Tokens.font.label.medium
                         color: tile.active ? IslandTheme.palette.m3primary : IslandTheme.palette.m3onSurfaceVariant
                     }
+                    IslandWorkspaceApps {
+                        visible: apps.length > 0
+                        apps: IslandWorkspaces.appsFor(IslandWorkspaces.fullSpecialName(tile.specialName))
+                        maximumIcons: tile.width >= 190 ? 3 : tile.width >= 140 ? 2 : 1
+                    }
                     IslandText {
                         text: tile.windowCount.toString()
                         islandFont: Tokens.font.label.small

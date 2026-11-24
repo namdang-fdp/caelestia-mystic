@@ -40,6 +40,42 @@ function busyCount(sessions, now) {
     return live(sessions, now).filter(s => s.state !== "done").length;
 }
 
+var COMPANIONS = ["codex", "claude"];
+
+function companionWaitKey(session) {
+    return JSON.stringify([session.agent, session.session, session.request || session.started || session.updated]);
+}
+
+function companionDoneKey(session) {
+    return JSON.stringify([session.agent, session.session, session.updated]);
+}
+
+function companionState(sessions, completed, dismissed) {
+    const pets = {};
+    const waiting = [];
+    for (const agent of COMPANIONS) {
+        const active = sessions.filter(s => s.agent === agent && s.state !== "done");
+        const needsInput = active.filter(s => s.state === "waiting");
+        const done = completed.filter(s => s.agent === agent);
+        waiting.push(...needsInput);
+        pets[agent] = {
+            count: active.length,
+            state: needsInput.length ? "waiting" : done.length ? "done" : active.length ? "working" : ""
+        };
+    }
+
+    const waitKeys = waiting.map(companionWaitKey);
+    const nextWaiting = waiting.find(session => !dismissed.includes(companionWaitKey(session)));
+    let notice = null;
+    if (nextWaiting) {
+        notice = { type: "waiting", key: companionWaitKey(nextWaiting), session: nextWaiting, count: 1 };
+    } else if (completed.length) {
+        const done = completed.filter(s => s.agent === completed[0].agent);
+        notice = { type: "done", key: done[0].agent, keys: done.map(companionDoneKey), session: done[done.length - 1], count: done.length };
+    }
+    return { pets, notice, waitKeys };
+}
+
 // Compares session states with the previous read. Returns the sessions that
 // just started waiting or finished, and the new state map.
 function diff(previous, sessions, now) {
@@ -51,7 +87,7 @@ function diff(previous, sessions, now) {
         const before = previous ? previous[id] : undefined;
         if (before === s.state) continue;
         if (s.state === "waiting") events.push({ type: "waiting", session: s });
-        else if (s.state === "done" && before === "working") events.push({ type: "done", session: s });
+        else if (s.state === "done" && (before === "working" || before === "waiting")) events.push({ type: "done", session: s });
     }
     return { events: events, states: states };
 }
@@ -95,15 +131,18 @@ function clampPercent(percent) {
     return Number.isFinite(p) ? Math.max(0, Math.min(100, Math.round(p))) : 0;
 }
 
-// The mascot's mood follows what the agents are doing and how much quota is left.
-function petMood(foreground, peakPercent) {
+// The mascot's mood follows what the agents are doing, how much quota is left,
+// and the pull requests: a merge is a party, red CI is a worry.
+function petMood(foreground, peakPercent, ciFailing, party) {
     if (foreground === "waiting") return "waiting";
+    if (party) return "party";
     if (Number(peakPercent) >= 90) return "tired";
+    if (ciFailing) return "sad";
     return foreground === "working" ? "working" : "idle";
 }
 
 function moodLabel(mood) {
-    return ({ working: "Hyped", waiting: "Needs you", tired: "Exhausted", idle: "Chill" })[mood] || "Chill";
+    return ({ working: "Hyped", waiting: "Needs you", tired: "Exhausted", party: "Celebrating", sad: "Worried", idle: "Chill" })[mood] || "Chill";
 }
 
 // 0..100, how fresh the pet feels: the opposite of the heaviest quota in use.
