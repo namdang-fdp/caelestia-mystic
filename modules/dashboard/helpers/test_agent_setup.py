@@ -47,6 +47,24 @@ if __name__ == "__main__":
     unittest.main()
 
 
+class TimeoutTests(unittest.TestCase):
+    def test_permission_request_gets_a_long_timeout_and_old_installs_are_upgraded(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "settings.json"
+            path.write_text("{}")
+            setup.install(path)
+            hooks = json.loads(path.read_text())["hooks"]
+            self.assertEqual(hooks["PermissionRequest"][0]["hooks"][0]["timeout"], 330)
+            self.assertEqual(hooks["PreToolUse"][0]["hooks"][0]["timeout"], 5)
+            # An install from before approvals had 5 seconds everywhere: not current.
+            hooks["PermissionRequest"][0]["hooks"][0]["timeout"] = 5
+            path.write_text(json.dumps({"hooks": hooks}))
+            self.assertFalse(setup.status(path)["installed"])
+            setup.install(path)
+            self.assertTrue(setup.status(path)["installed"])
+            self.assertEqual(len(json.loads(path.read_text())["hooks"]["PermissionRequest"]), 1)
+
+
 class GeminiTests(unittest.TestCase):
     def test_gemini_events_and_agent_name(self):
         with tempfile.TemporaryDirectory() as d:
@@ -58,3 +76,14 @@ class GeminiTests(unittest.TestCase):
             self.assertTrue(data["hooks"]["BeforeTool"][0]["hooks"][0]["command"].endswith("agent_hook.py gemini"))
             self.assertTrue(setup.status(path, setup.GEMINI_EVENTS)["installed"])
             self.assertFalse(setup.status(path)["installed"])
+
+
+class CodexTests(unittest.TestCase):
+    def test_codex_uses_short_passive_hook_timeouts(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "hooks.json"
+            setup.install(path, setup.CODEX_EVENTS, "codex")
+            hooks = json.loads(path.read_text())["hooks"]
+            self.assertEqual(hooks["PermissionRequest"][0]["hooks"][0]["timeout"], 5)
+            self.assertEqual(hooks["Interrupt"][0]["hooks"][0]["timeout"], 1)
+            self.assertTrue(setup.status(path, setup.CODEX_EVENTS, "codex")["installed"])

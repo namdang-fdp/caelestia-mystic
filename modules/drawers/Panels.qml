@@ -3,6 +3,7 @@ import QtQuick.Effects
 import Quickshell
 import Caelestia.Config
 import qs.components
+import qs.services
 import qs.modules.dashboard as Dashboard
 import qs.modules.launcher as Launcher
 import qs.modules.utilities as Utilities
@@ -17,6 +18,7 @@ Item {
     required property real borderThickness
     readonly property alias launcher: launcher
     readonly property alias dashboard: dashboard
+    readonly property alias agentCompanion: agentCompanion
     readonly property alias utilities: utilities
     readonly property alias resources: resources
     readonly property alias toasts: toasts
@@ -30,6 +32,18 @@ Item {
         panels: root
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.bottom
+    }
+    Dashboard.IslandAgentCompanion {
+        id: agentCompanion
+        island: dashboard
+        available: dashboard.Config.dashboard.enabled && IslandTools.agentNotch && !root.fullscreen
+            && root.screen === Quickshell.screens.reduce((chosen, screen) => {
+                if (!chosen) return screen;
+                const internal = /^(eDP|LVDS|DSI)-/.test(screen.name);
+                const chosenInternal = /^(eDP|LVDS|DSI)-/.test(chosen.name);
+                if (internal !== chosenInternal) return internal ? chosen : screen;
+                return screen.x < chosen.x ? screen : chosen;
+            }, null)
     }
     Dashboard.Wrapper {
         id: dashboard

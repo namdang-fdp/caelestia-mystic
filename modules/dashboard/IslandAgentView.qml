@@ -25,7 +25,7 @@ ColumnLayout {
     readonly property var current: providers.find(p => p.key === activeTab) ?? null
     readonly property real nowSeconds: AgentState.now / 1000
     readonly property real peak: Logic.peakPercent([].concat(...providers.map(p => [p.usage?.session?.usedPercent, p.usage?.weekly?.usedPercent])))
-    readonly property string mood: Logic.petMood(AgentState.foreground, peak)
+    readonly property string mood: Logic.petMood(AgentState.foreground, peak, DevData.ciFailing, DevData.party)
     readonly property var weekSource: current ? [current.stats?.week] : providers.map(p => p.stats?.week)
     readonly property var week: Logic.sumWeeks(weekSource)
     readonly property real weekPeak: Math.max(1, ...week.map(d => d.tokens))
@@ -47,6 +47,45 @@ ColumnLayout {
 
     Component.onCompleted: { AgentState.viewers++; AiUsage.refresh(false); }
     Component.onDestruction: AgentState.viewers--
+
+    // A prompt is waiting: show what it asks and let the island answer it.
+    Rectangle {
+        id: approval
+        readonly property var session: AgentState.waitingSession
+        visible: !!session
+        Layout.fillWidth: true
+        implicitHeight: approvalBody.implicitHeight + 24
+        radius: 20
+        color: Qt.alpha(IslandTheme.palette.orange, .14)
+        border.width: 1
+        border.color: Qt.alpha(IslandTheme.palette.orange, .55)
+        ColumnLayout {
+            id: approvalBody
+            anchors { left: parent.left; right: parent.right; top: parent.top; margins: 12 }
+            spacing: 8
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+                IslandAgentMark { state: "waiting"; size: 16 }
+                IslandText { Layout.fillWidth: true; text: qsTr("%1 needs you").arg(Logic.agentName(approval.session?.agent)) + (approval.session?.project ? ` · ${approval.session.project}` : ""); font.pixelSize: 13; font.weight: Font.DemiBold; elide: Text.ElideRight }
+                IslandButton { iconName: "open_in_new"; implicitHeight: 28; implicitWidth: 32; leftPadding: 5; rightPadding: 5; Accessible.name: qsTr("Go to the session's window"); onClicked: AgentState.focusSession(approval.session) }
+            }
+            IslandText {
+                visible: !!approval.session?.tool || !!approval.session?.detail
+                Layout.fillWidth: true
+                text: [approval.session?.tool, approval.session?.detail].filter(t => t).join(" · ")
+                font.pixelSize: 12; color: IslandTheme.palette.m3onSurfaceVariant
+                wrapMode: Text.WrapAnywhere; maximumLineCount: 2; elide: Text.ElideRight
+            }
+            RowLayout {
+                visible: !!approval.session?.decidable
+                Layout.fillWidth: true
+                spacing: 8
+                IslandButton { objectName: "islandAgentDeny"; Layout.fillWidth: true; text: qsTr("Deny"); implicitHeight: 32; Accessible.name: qsTr("Deny"); onClicked: AgentState.decide(approval.session, "deny") }
+                IslandButton { objectName: "islandAgentAllow"; Layout.fillWidth: true; text: qsTr("Allow"); accent: true; accentColour: IslandTheme.palette.green; implicitHeight: 32; Accessible.name: qsTr("Allow"); onClicked: AgentState.decide(approval.session, "allow") }
+            }
+        }
+    }
 
     // Tabs
     RowLayout {
@@ -97,7 +136,7 @@ ColumnLayout {
             Layout.preferredWidth: 112
             Layout.alignment: Qt.AlignTop
             spacing: 6
-            IslandAgentPet { Layout.alignment: Qt.AlignHCenter; mood: root.mood; kind: IslandTools.petKind }
+            IslandAgentPet { Layout.alignment: Qt.AlignHCenter; mood: root.mood; kind: IslandTools.petKind; level: DevData.streak.level }
             IslandText { visible: !root.renaming; Layout.alignment: Qt.AlignHCenter; text: IslandTools.petName; font.pixelSize: 15; font.weight: Font.DemiBold
                 TapHandler { onTapped: { root.renaming = true; nameField.text = IslandTools.petName; nameField.forceActiveFocus(); nameField.selectAll(); } }
                 HoverHandler { cursorShape: Qt.PointingHandCursor }
@@ -127,6 +166,7 @@ ColumnLayout {
                     }
                 }
             }
+            IslandText { Layout.alignment: Qt.AlignHCenter; text: qsTr("Lv %1").arg(DevData.streak.level) + (DevData.streak.streak > 1 ? qsTr(" · %1-day streak").arg(DevData.streak.streak) : ""); font.pixelSize: 11; font.weight: Font.DemiBold; color: IslandTheme.palette.yellow }
             IslandText { Layout.alignment: Qt.AlignHCenter; text: Logic.moodLabel(root.mood); font.pixelSize: 11; color: root.mood === "waiting" ? IslandTheme.palette.warning : IslandTheme.palette.m3onSurfaceVariant }
             RowLayout {
                 Layout.alignment: Qt.AlignHCenter
@@ -249,9 +289,12 @@ ColumnLayout {
             Repeater {
                 model: root.sessionsOf("").slice(0, 3)
                 RowLayout {
+                    id: sessionRow
                     required property var modelData
                     Layout.fillWidth: true
                     spacing: 8
+                    HoverHandler { cursorShape: Qt.PointingHandCursor }
+                    TapHandler { onTapped: AgentState.focusSession(sessionRow.modelData) }
                     IslandAgentMark { state: parent.modelData.state; size: 14 }
                     IslandText { Layout.fillWidth: true; text: `${parent.modelData.project || qsTr("Session")} · ${Logic.agentName(parent.modelData.agent)}`; font.pixelSize: 12; elide: Text.ElideRight }
                     IslandText { text: Logic.elapsed(root.nowSeconds - Number(parent.modelData.started ?? parent.modelData.updated)); font.pixelSize: 11; font.features: { "tnum": 1 }; color: IslandTheme.palette.m3onSurfaceVariant }

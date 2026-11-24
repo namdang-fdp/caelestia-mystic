@@ -87,7 +87,7 @@ def codex_session(path: Path, now: float) -> dict | None:
         session = str((meta.get("payload") or {}).get("id") or path.stem)
     except (OSError, ValueError):
         session = path.stem
-    return {"agent": "codex", "session": session, "project": Path(cwd).name if cwd else "",
+    return {"agent": "codex", "session": session, "project": Path(cwd).name if cwd else "", "cwd": cwd, "pid": 0,
             "state": state, "started": started, "updated": mtime}
 
 
@@ -110,15 +110,25 @@ def codex_sessions(root: Path, now: float) -> list[dict]:
     return found
 
 
-def collect(home: Path, directory: Path, now: float) -> list[dict]:
+def collect(home: Path, directory: Path, now: float, codex_home: Path | None = None) -> list[dict]:
     sessions = hook_sessions(directory) if directory.is_dir() else []
-    seen = {(s.get("agent"), s.get("session")) for s in sessions}
-    for session in codex_sessions(home / ".codex" / "sessions", now):
-        if ("codex", session["session"]) not in seen:
+    positions = {(s.get("agent"), s.get("session")): idx for idx, s in enumerate(sessions)}
+    for session in codex_sessions((codex_home or home / ".codex") / "sessions", now):
+        position = positions.get(("codex", session["session"]))
+        if position is None:
             sessions.append(session)
+            continue
+        hook = sessions[position]
+        try:
+            # A turn that started or completed after the last hook can supersede it.
+            if session["started"] > float(hook.get("updated", 0)):
+                sessions[position] = session
+        except (ValueError, TypeError):
+            sessions[position] = session
     return sessions
 
 
 if __name__ == "__main__":
-    for item in collect(Path.home(), state_dir(), time.time()):
+    codex_home = os.environ.get("CODEX_HOME")
+    for item in collect(Path.home(), state_dir(), time.time(), Path(codex_home) if codex_home else None):
         sys.stdout.write(json.dumps(item) + "\n")

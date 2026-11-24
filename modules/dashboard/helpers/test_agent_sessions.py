@@ -34,7 +34,7 @@ class SessionTests(unittest.TestCase):
         self.rollout("a", "task_started", 10)
         self.rollout("b", "task_complete", 30)
         got = {s["session"]: s for s in sessions.collect(self.home, self.agents, NOW)}
-        self.assertEqual((got["a"]["state"], got["a"]["project"]), ("working", "proj"))
+        self.assertEqual((got["a"]["state"], got["a"]["project"], got["a"]["cwd"]), ("working", "proj", "/home/u/proj"))
         self.assertEqual(got["b"]["state"], "done")
 
     def test_stale_codex_logs_are_ignored(self):

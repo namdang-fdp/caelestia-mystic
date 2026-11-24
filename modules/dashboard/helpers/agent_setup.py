@@ -1,18 +1,20 @@
 #!/usr/bin/env python3
-"""Install or remove the island's hooks for Claude Code or Gemini CLI.
+"""Install or remove local agent activity hooks.
 
-    agent_setup.py status|install|uninstall [claude|gemini]
+    agent_setup.py status|install|uninstall [claude|codex|gemini]
 
 Only entries whose command mentions agent_hook.py are ever added or removed;
 everything else in settings.json is preserved. A timestamped backup is written
-before every change. Codex is not touched: its sessions are read from logs.
+before every change. Codex hooks report state and leave approvals to Codex.
 """
 
 from __future__ import annotations
 
 import json
 import os
+import shlex
 import shutil
+import stat
 import sys
 import time
 from pathlib import Path
@@ -21,20 +23,42 @@ MARKER = "agent_hook.py"
 EVENTS = ["UserPromptSubmit", "PreToolUse", "PostToolUse", "PermissionRequest", "Notification", "Stop", "SessionEnd"]
 # Gemini CLI's hook events (experimental: follows its documented names).
 GEMINI_EVENTS = ["BeforeAgent", "BeforeTool", "AfterTool", "Notification", "AfterAgent", "SessionEnd"]
+CODEX_EVENTS = ["PermissionRequest", "PostToolUse", "Stop", "Interrupt", "SessionEnd"]
 TARGETS = {
     "claude": {"path": ".claude/settings.json", "events": EVENTS, "env": "CLAUDE_SETTINGS", "binary": "claude"},
     "gemini": {"path": ".gemini/settings.json", "events": GEMINI_EVENTS, "env": "GEMINI_SETTINGS", "binary": "gemini"},
+    "codex": {"path": ".codex/hooks.json", "events": CODEX_EVENTS, "env": "CODEX_HOOKS", "binary": "codex"},
 }
 
 
 def settings_path(target="claude") -> Path:
     info = TARGETS[target]
+    if target == "codex" and os.environ.get("CODEX_HOME") and not os.environ.get(info["env"]):
+        return Path(os.environ["CODEX_HOME"]) / "hooks.json"
     return Path(os.environ.get(info["env"]) or Path.home() / info["path"])
 
 
 def hook_command(agent="claude") -> str:
     script = Path(__file__).with_name("agent_hook.py")
-    return f"python3 -I {script} {agent}"
+    return f"python3 -I {shlex.quote(str(script))} {agent}"
+
+
+# PermissionRequest waits for the island's answer, so it needs far longer than the rest.
+TIMEOUTS = {"PermissionRequest": 330}
+DEFAULT_TIMEOUT = 5
+
+
+def expected_timeout(event: str, agent="claude") -> int:
+    if agent == "codex" and event == "Interrupt":
+        return 1
+    return TIMEOUTS.get(event, DEFAULT_TIMEOUT) if agent == "claude" else DEFAULT_TIMEOUT
+
+
+def is_current(group, event: str, agent="claude") -> bool:
+    """Ours, with the timeout this version expects (older installs get upgraded)."""
+    return is_ours(group) and any(
+        MARKER in str(h.get("command", "")) and h.get("timeout") == expected_timeout(event, agent)
+        for h in group.get("hooks", []) if isinstance(h, dict))
 
 
 def is_ours(group) -> bool:
@@ -55,16 +79,18 @@ def status(path: Path, events=EVENTS, binary="claude") -> dict:
         hooks = load(path).get("hooks") or {}
     except (OSError, ValueError):
         return {"installed": False, "claude": False, "error": "unreadable"}
-    installed = all(any(is_ours(g) for g in hooks.get(e, [])) for e in events)
+    installed = all(any(is_current(g, e, binary) for g in hooks.get(e, [])) for e in events)
     return {"installed": installed, "claude": installed, "available": shutil.which(binary) is not None or path.parent.exists()}
 
 
 def write(path: Path, data: dict) -> None:
+    mode = stat.S_IMODE(path.stat().st_mode) if path.exists() else 0o600
     if path.exists():
         shutil.copy2(path, path.with_name(f"{path.name}.bak-island-{time.strftime('%Y%m%d-%H%M%S')}"))
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_suffix(".tmp")
     temporary.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
+    temporary.chmod(mode)
     os.replace(temporary, path)
 
 
@@ -75,7 +101,7 @@ def install(path: Path, events=EVENTS, agent="claude") -> None:
         raise ValueError("hooks is not an object")
     for event in events:
         groups = [g for g in hooks.get(event, []) if not is_ours(g)]
-        groups.append({"hooks": [{"type": "command", "command": hook_command(agent), "timeout": 5}]})
+        groups.append({"hooks": [{"type": "command", "command": hook_command(agent), "timeout": expected_timeout(event, agent)}]})
         hooks[event] = groups
     write(path, data)
 

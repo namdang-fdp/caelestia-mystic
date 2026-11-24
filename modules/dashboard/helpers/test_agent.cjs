@@ -8,6 +8,32 @@ const logic=load('AgentLogic.js'), act=load('ActivityLogic.js');
 const now=1_000_000_000_000;
 const s=(agent,session,state,ageSec=1)=>({agent,session,state,updated:now/1000-ageSec,project:'p'});
 
+test('companions group sessions and keep waiting ahead of pending completions', () => {
+ const working = s('codex', 'working', 'working');
+ const waiting = { ...s('codex', 'waiting', 'waiting'), request: 'one' };
+ const completed = [s('claude', 'old', 'done'), s('claude', 'latest', 'done')];
+ const first = logic.companionState([working, waiting], completed, []);
+ assert.equal(first.pets.codex.count, 2);
+ assert.equal(first.pets.codex.state, 'waiting');
+ assert.equal(first.notice.session.session, 'waiting');
+ const read = logic.companionState([working, waiting], completed, [first.notice.key]);
+ assert.equal(read.pets.codex.state, 'waiting');
+ assert.equal(read.notice.count, 2);
+ assert.equal(read.notice.session.session, 'latest');
+ const renewed = logic.companionState([working, { ...waiting, request: 'two' }], completed, [first.notice.key]);
+ assert.equal(renewed.notice.type, 'waiting');
+});
+
+test('a finished provider goes back to work or leaves after its notice clears', () => {
+ const working = s('codex', 'one', 'working');
+ const completed = s('codex', 'two', 'done');
+ assert.equal(logic.companionState([working, completed], [completed], []).pets.codex.state, 'done');
+ assert.equal(logic.companionState([working, completed], [], []).pets.codex.state, 'working');
+ const idle = logic.companionState([completed], [], []);
+ assert.equal(idle.pets.codex.state, '');
+ assert.equal(idle.notice, null);
+});
+
 test('waiting outranks working and done never claims the notch',()=>{
  assert.equal(logic.foreground([s('claude','a','working'),s('codex','b','waiting')],now),'waiting');
  assert.equal(logic.foreground([s('claude','a','working')],now),'working');
@@ -58,6 +84,8 @@ test('quota severity and pet mood',()=>{
  assert.equal(logic.petMood('working',10),'working');assert.equal(logic.petMood('',10),'idle');
  assert.equal(logic.health(29),71);assert.equal(logic.health(150),0);assert.equal(logic.peakPercent([3,'x',71]),71);assert.equal(logic.peakPercent([]),0);
  assert.equal(logic.moodLabel('working'),'Hyped');
+ assert.equal(logic.petMood('','10',true,false),'sad');assert.equal(logic.petMood('working',10,true,true),'party');
+ assert.equal(logic.petMood('waiting',10,true,true),'waiting');assert.equal(logic.petMood('',95,true,false),'tired');assert.equal(logic.moodLabel('party'),'Celebrating');
 });
 test('weeks from several agents add up per day',()=>{
  const a=[{date:'d1',tokens:5,calls:1},{date:'d2',tokens:0,calls:0}], b=[{date:'d1',tokens:7,calls:2}];

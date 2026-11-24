@@ -14,6 +14,12 @@ Region {
         height: root.panels.dashboard.dragging ? root.win.height : 0
     }
     R { panel: root.panels.dashboard }
+    R {
+        panel: root.panels.agentCompanion.noticeSurface
+        offsetX: root.panels.agentCompanion.x
+        offsetY: root.panels.agentCompanion.y
+        enabled: panel.interactive && root.panels.agentCompanion.visible
+    }
     R { panel: root.panels.launcher; enabled: !root.win.hasFullscreen; height: panel.height * (1 - panel.offsetScale) }
     R { panel: root.panels.utilities; enabled: !root.win.hasFullscreen; height: panel.height * (1 - panel.offsetScale) }
     R { panel: root.panels.toasts; enabled: !root.win.hasFullscreen }
